@@ -283,7 +283,7 @@ namespace System.Management.Automation
                 var compiledAttributes = parameter.CompiledAttributes;
                 bool supportsWildcards = compiledAttributes.OfType<SupportsWildcardsAttribute>().Any();
 
-                string defaultValueStr = "";
+                string defaultValueStr = string.Empty;
                 object defaultValue = null;
                 var defaultValueAttribute = compiledAttributes.OfType<PSDefaultValueAttribute>().FirstOrDefault();
                 if (defaultValueAttribute != null)
@@ -469,7 +469,7 @@ namespace System.Management.Automation
                     parameterSetData.IsMandatory, parameterSetData.ValueFromPipeline,
                     parameterSetData.ValueFromPipelineByPropertyName,
                     parameterSetData.IsPositional ? (1 + parameterSetData.Position).ToString(CultureInfo.InvariantCulture) : "named",
-                    parameter.Type, description, supportsWildcards, defaultValue: "", forSyntax: true);
+                    parameter.Type, description, supportsWildcards, defaultValue: string.Empty, forSyntax: true);
                 syntaxItem.AppendChild(parameterElement);
             }
             command.AppendChild(syntax).AppendChild(syntaxItem);
@@ -477,8 +477,9 @@ namespace System.Management.Automation
 
         private static void GetExampleSections(string content, out string prompt_str, out string code_str, out string remarks_str)
         {
-            prompt_str = code_str = "";
+            prompt_str = code_str = string.Empty;
             StringBuilder builder = new StringBuilder();
+            string default_prompt_str = "PS > ";
 
             int collectingPart = 1;
             foreach (char c in content)
@@ -495,7 +496,7 @@ namespace System.Management.Automation
                 {
                     if (collectingPart == 1)
                     {
-                        prompt_str = "PS C:\\>";
+                        prompt_str = default_prompt_str;
                     }
                     code_str = builder.ToString().Trim();
                     builder = new StringBuilder();
@@ -507,9 +508,9 @@ namespace System.Management.Automation
 
             if (collectingPart == 1)
             {
-                prompt_str = "PS C:\\>";
+                prompt_str = default_prompt_str;
                 code_str = builder.ToString().Trim();
-                remarks_str = "";
+                remarks_str = string.Empty;
             }
             else
             {
@@ -905,25 +906,8 @@ namespace System.Management.Automation
                                                              HelpCategory.ExternalScript |
                                                              HelpCategory.Filter |
                                                              HelpCategory.Function |
-                                                             HelpCategory.ScriptCommand |
-                                                             HelpCategory.Workflow);
+                                                             HelpCategory.ScriptCommand);
                     }
-                }
-
-                WorkflowInfo workflowInfo = commandInfo as WorkflowInfo;
-                if (workflowInfo != null)
-                {
-                    bool common = DefaultCommandHelpObjectBuilder.HasCommonParameters(commandInfo.Parameters);
-                    bool commonWorkflow = ((commandInfo.CommandType & CommandTypes.Workflow) ==
-                                           CommandTypes.Workflow);
-
-                    localHelpInfo.FullHelp.Properties.Add(new PSNoteProperty("CommonParameters", common));
-                    localHelpInfo.FullHelp.Properties.Add(new PSNoteProperty("WorkflowCommonParameters", commonWorkflow));
-                    DefaultCommandHelpObjectBuilder.AddDetailsProperties(obj: localHelpInfo.FullHelp, name: workflowInfo.Name,
-                                                                        noun: workflowInfo.Noun, verb: workflowInfo.Verb,
-                                                                        typeNameForHelp: "MamlCommandHelpInfo", synopsis: localHelpInfo.Synopsis);
-                    DefaultCommandHelpObjectBuilder.AddSyntaxProperties(localHelpInfo.FullHelp, workflowInfo.Name,
-                                                                        workflowInfo.ParameterSets, common, commonWorkflow, "MamlCommandHelpInfo");
                 }
 
                 // Add HelpUri if necessary

@@ -116,6 +116,16 @@ Describe 'Positive Parse Properties Tests' -Tags "CI" {
         class C9b { [System.Collections.Generic.List[C9b]] f() { return [C9b]::new() } }
         $c9b = [C9b]::new().f()
         It "Expected a System.Collections.Generic.List[C9b] returned" {  $c9b -is [System.Collections.Generic.List[C9b]] | Should -BeTrue }
+        It 'Methods returning object should return $null if no output was produced' {
+            class Foo {
+                [object] Bar1() { return & {} }
+                static [object] Bar2() { return & {} }
+            }
+            # Test instance method
+            [Foo]::new().Bar1() | Should -BeNullOrEmpty
+            # Test static method
+            [foo]::Bar2() | Should -BeNullOrEmpty
+        }
     }
 
     It 'Positive ParseProperty Attributes Test' {
@@ -571,11 +581,20 @@ Describe 'Hidden Members Test ' -Tags "CI" {
 
         It "Access hidden property should still work" { $instance.hiddenZ | Should -Be 42 }
 
-        # Formatting should not include hidden members by default
-        $tableOutput = $instance | Format-Table -HideTableHeaders -AutoSize | Out-String
-        It "Table formatting should not have included hidden member hiddenZ - should contain 10" { $tableOutput.Contains(10) | Should -BeTrue}
-        It "Table formatting should not have included hidden member hiddenZ- should contain 12" { $tableOutput.Contains(12) | Should -BeTrue}
-        It "Table formatting should not have included hidden member hiddenZ - should not contain 42" { $tableOutput.Contains(42) | Should -BeFalse}
+        It "Table formatting should not include hidden member hiddenZ" {
+            $expectedTable = @"
+
+visibleX visibleY
+-------- --------
+      10       12
+
+
+
+"@
+
+            $tableOutput = $instance | Format-Table -AutoSize | Out-String
+            $tableOutput.Replace("`r","") | Should -BeExactly $expectedTable.Replace("`r","")
+        }
 
         # Get-Member should not include hidden members by default
         $member = $instance | Get-Member hiddenZ
@@ -637,7 +656,7 @@ function test-it([EE]$ee){$ee}
         }
         finally
         {
-            Remove-Module -ea ignore MSFT_2081529
+            Remove-Module -ErrorAction ignore MSFT_2081529
         }
 }
 

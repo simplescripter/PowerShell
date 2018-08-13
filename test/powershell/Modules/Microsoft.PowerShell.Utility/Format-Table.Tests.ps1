@@ -21,7 +21,7 @@ Describe "Format-Table" -Tags "CI" {
 
         It "Format-Table with not existing table with force should throw PipelineStoppedException"{
                 $obj = New-Object -typename PSObject
-                $e = { $obj | Format-Table -view bar -force -EA Stop } |
+                $e = { $obj | Format-Table -view bar -force -ErrorAction Stop } |
                     Should -Throw -ErrorId "FormatViewNotFound,Microsoft.PowerShell.Commands.FormatTableCommand" -PassThru
                 $e.CategoryInfo | Should -Match "PipelineStoppedException"
         }
@@ -330,6 +330,16 @@ Left Center Right
         }
 
         It "Format-Table should correctly render headers that span multiple rows: <variation>" -TestCases @(
+            @{ view = "Default"; widths = 7,7,7; variation = "2 row, 1 row, 1 row"; expectedTable = @"
+
+LongLon Header2 Header3
+gHeader
+------- ------- -------
+1       2       3
+
+
+
+"@ },
             @{ view = "Default"; widths = 4,7,4; variation = "4 row, 1 row, 2 row"; expectedTable = @"
 
 Long Header2 Head
@@ -463,7 +473,7 @@ er
                 Write-Verbose $e.ToString() -Verbose
             }
             $ps.HadErrors | Should -BeFalse
-            $output.Replace("`r","").Replace(" ",".").Replace("`n","``") | Should -BeExactly $expectedTable.Replace("`r","").Replace(" ",".").Replace("`n","``")
+            $output.Replace("`r","").Replace(" ",".").Replace("`n","^") | Should -BeExactly $expectedTable.Replace("`r","").Replace(" ",".").Replace("`n","^")
         }
 
         It "Format-Table should correctly render rows: <variation>" -TestCases @(
@@ -668,6 +678,140 @@ er
                 Write-Verbose $e.ToString() -Verbose
             }
             $ps.HadErrors | Should -BeFalse
-            $output.Replace("`r","").Replace(" ","*").Replace("`n","``") | Should -BeExactly $expectedTable.Replace("`r","").Replace(" ",".").Replace("`n","``")
+            $output.Replace("`r","").Replace(" ","*").Replace("`n","^") | Should -BeExactly $expectedTable.Replace("`r","").Replace(" ",".").Replace("`n","^")
+        }
+
+        It "Should render header/row correctly where values are wider than header w/ implicit autosize: <variation>" -TestCases @(
+            @{ variation = "first column"; obj = [pscustomobject]@{abc="1234";bcd="123"},[pscustomobject]@{abc="1";bcd="1234"}; expectedTable = @"
+
+abc  bcd
+---  ---
+1234 123
+1    1234
+
+
+
+"@ },
+            @{ variation = "both columns"; obj = [pscustomobject]@{abc="1234";bcd="1234"},[pscustomobject]@{abc="1";bcd="1"}; expectedTable = @"
+
+abc  bcd
+---  ---
+1234 1234
+1    1
+
+
+
+"@ },
+            @{ variation = "second column"; obj = [pscustomobject]@{abc="123";bcd="1234"},[pscustomobject]@{abc="1";bcd="123"}; expectedTable = @"
+
+abc bcd
+--- ---
+123 1234
+1   123
+
+
+
+"@ }
+        ) {
+            param($obj, $expectedTable)
+            $output = $obj | Format-Table | Out-String
+            $output.Replace("`r","").Replace(" ",".").Replace("`n","^") | Should -BeExactly $expectedTable.Replace("`r","").Replace(" ",".").Replace("`n","^")
+        }
+
+        It "Should render header correctly where header is shorter than column width with justification: <variation>" -TestCases @(
+            @{ variation = "left/right"; obj = [PSCustomObject]@{a="abc";b=123}; expectedTable = @"
+
+a     b
+-     -
+abc 123
+
+
+
+"@ },
+            @{ variation = "left/left"; obj = [PSCustomObject]@{a="abc";b="abc"}; expectedTable = @"
+
+a   b
+-   -
+abc abc
+
+
+
+"@ },
+            @{ variation = "right/left"; obj = [PSCustomObject]@{a=123;b="abc"}; expectedTable = @"
+
+  a b
+  - -
+123 abc
+
+
+
+"@ },
+            @{ variation = "right/right"; obj = [PSCustomObject]@{a=123;b=123}; expectedTable = @"
+
+  a   b
+  -   -
+123 123
+
+
+
+"@ }
+        ) {
+            param($obj, $expectedTable)
+            $output = $obj | Format-Table | Out-String
+            $output.Replace("`r","").Replace(" ",".").Replace("`n","^") | Should -BeExactly $expectedTable.Replace("`r","").Replace(" ",".").Replace("`n","^")
+        }
+
+        It "Should render rows correctly when wrapped: <variation>" -TestCases @(
+            @{ variation = "right"; obj = [pscustomobject] @{A=1;B=2;Name="This`nIs some random`nmultiline content"}; expectedTable = @"
+
+A B Name
+- - ----
+1 2 This
+    Is some random
+    multiline content
+
+
+
+"@ },
+            @{ variation = "left"; obj = [pscustomobject] @{Name="This`nIs some random`nmultiline content";A=1;B=2}; expectedTable = @"
+
+Name                                  A B
+----                                  - -
+This                                  1 2
+Is some random
+multiline content
+
+
+
+"@ },
+            @{ variation = "middle"; obj = [pscustomobject] @{A=1;Name="This`nIs some random`nmultiline content";B=2}; expectedTable = @"
+
+A Name                                  B
+- ----                                  -
+1 This                                  2
+  Is some random
+  multiline content
+
+
+
+"@ }
+        ) {
+            param($obj, $expectedTable)
+            $output = $obj | Format-Table -Wrap | Out-String
+            $output.Replace("`r","").Replace(" ",".").Replace("`n","^") | Should -BeExactly $expectedTable.Replace("`r","").Replace(" ",".").Replace("`n","^")
+        }
+
+        It "Should not return null when the Console width is equal to 0" {
+            [system.management.automation.internal.internaltesthooks]::SetTestHook('SetConsoleWidthToZero', $true)
+            try
+            {
+                # Fill the console window with the string, so that it reaches its max width.
+                # Check if the max width is equal to default value (120), to test test hook set.
+                $testObject = @{ test = '1' * 200}
+                Format-table -inputobject $testObject | Out-String -Stream | ForEach-Object{$_.length} | Sort-Object -Bottom 1 | Should -Be 120
+            }
+            finally {
+                [system.management.automation.internal.internaltesthooks]::SetTestHook('SetConsoleWidthToZero', $false)
+            }
         }
     }

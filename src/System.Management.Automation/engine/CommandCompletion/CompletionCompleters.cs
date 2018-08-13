@@ -27,7 +27,6 @@ using Microsoft.PowerShell.Commands;
 namespace System.Management.Automation
 {
     /// <summary>
-    ///
     /// </summary>
     public static class CompletionCompleters
     {
@@ -47,7 +46,6 @@ namespace System.Management.Automation
         #region Command Names
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="commandName"></param>
         /// <returns></returns>
@@ -57,7 +55,6 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="commandName"></param>
         /// <param name="moduleName"></param>
@@ -398,7 +395,7 @@ namespace System.Management.Automation
 
         #region Module Names
 
-        internal static List<CompletionResult> CompleteModuleName(CompletionContext context, bool loadedModulesOnly)
+        internal static List<CompletionResult> CompleteModuleName(CompletionContext context, bool loadedModulesOnly, bool skipEditionCheck = false)
         {
             var moduleName = context.WordToComplete ?? string.Empty;
             var result = new List<CompletionResult>();
@@ -413,6 +410,12 @@ namespace System.Management.Automation
             if (!loadedModulesOnly)
             {
                 powershell.AddParameter("ListAvailable", true);
+
+                // -SkipEditionCheck should only be set or apply to -ListAvailable
+                if (skipEditionCheck)
+                {
+                    powershell.AddParameter("SkipEditionCheck", true);
+                }
             }
 
             Exception exceptionThrown;
@@ -1611,7 +1614,6 @@ namespace System.Management.Automation
         /// <summary>
         /// Process a parameter to get the argument completion results
         /// </summary>
-        ///
         /// <remarks>
         /// If the argument completion falls into these pre-defined cases:
         ///   1. The matching parameter is of type Enum
@@ -1698,11 +1700,9 @@ namespace System.Management.Automation
 
             foreach (ValidateArgumentsAttribute att in parameter.Parameter.ValidationAttributes)
             {
-                if (att is ValidateSetAttribute)
+                if (att is ValidateSetAttribute setAtt)
                 {
                     RemoveLastNullCompletionResult(result);
-
-                    var setAtt = (ValidateSetAttribute)att;
 
                     string wordToComplete = context.WordToComplete;
                     string quote = HandleDoubleAndSingleQuote(ref wordToComplete);
@@ -1712,6 +1712,8 @@ namespace System.Management.Automation
 
                     foreach (string value in setAtt.ValidValues)
                     {
+                        if (value == string.Empty) { continue; }
+
                         if (wordToComplete.Equals(value, StringComparison.OrdinalIgnoreCase))
                         {
                             string completionText = quote == string.Empty ? value : quote + value + quote;
@@ -2101,17 +2103,19 @@ namespace System.Management.Automation
                 case "Get-Module":
                     {
                         bool loadedModulesOnly = boundArguments == null || !boundArguments.ContainsKey("ListAvailable");
-                        NativeCompletionModuleCommands(context, parameterName, loadedModulesOnly, /* isImportModule: */ false, result);
+                        bool skipEditionCheck = !loadedModulesOnly && boundArguments.ContainsKey("SkipEditionCheck");
+                        NativeCompletionModuleCommands(context, parameterName, result, loadedModulesOnly, skipEditionCheck: skipEditionCheck);
                         break;
                     }
                 case "Remove-Module":
                     {
-                        NativeCompletionModuleCommands(context, parameterName, /* loadedModulesOnly: */ true, /* isImportModule: */ false, result);
+                        NativeCompletionModuleCommands(context, parameterName, result, loadedModulesOnly: true);
                         break;
                     }
                 case "Import-Module":
                     {
-                        NativeCompletionModuleCommands(context, parameterName, /* loadedModulesOnly: */ false, /* isImportModule: */ true, result);
+                        bool skipEditionCheck = boundArguments != null && boundArguments.ContainsKey("SkipEditionCheck");
+                        NativeCompletionModuleCommands(context, parameterName, result, isImportModule: true, skipEditionCheck: skipEditionCheck);
                         break;
                     }
                 case "Debug-Process":
@@ -2695,7 +2699,7 @@ namespace System.Management.Automation
             CompletionContext context)
         {
             string containerNamespace = "root";
-            string prefixOfChildNamespace = "";
+            string prefixOfChildNamespace = string.Empty;
             if (!string.IsNullOrEmpty(context.WordToComplete))
             {
                 int lastSlashOrBackslash = context.WordToComplete.LastIndexOfAny(Utils.Separators.Directory);
@@ -3046,7 +3050,13 @@ namespace System.Management.Automation
             }
         }
 
-        private static void NativeCompletionModuleCommands(CompletionContext context, string paramName, bool loadedModulesOnly, bool isImportModule, List<CompletionResult> result)
+        private static void NativeCompletionModuleCommands(
+            CompletionContext context,
+            string paramName,
+            List<CompletionResult> result,
+            bool loadedModulesOnly = false,
+            bool isImportModule = false,
+            bool skipEditionCheck = false)
         {
             if (string.IsNullOrEmpty(paramName))
             {
@@ -3067,7 +3077,7 @@ namespace System.Management.Automation
                                 StringLiterals.PowerShellILAssemblyExtension,
                                 StringLiterals.PowerShellCmdletizationFileExtension
                             };
-                    var moduleFilesResults = new List<CompletionResult>(CompleteFilename(context, /* containerOnly: */ false, moduleExtensions));
+                    var moduleFilesResults = new List<CompletionResult>(CompleteFilename(context, containerOnly: false, moduleExtensions));
                     if (moduleFilesResults.Count > 0)
                         result.AddRange(moduleFilesResults);
 
@@ -3079,7 +3089,7 @@ namespace System.Management.Automation
                     }
                 }
 
-                var moduleResults = CompleteModuleName(context, loadedModulesOnly);
+                var moduleResults = CompleteModuleName(context, loadedModulesOnly, skipEditionCheck);
                 if (moduleResults != null && moduleResults.Count > 0)
                     result.AddRange(moduleResults);
 
@@ -3170,6 +3180,12 @@ namespace System.Management.Automation
                     else
                     {
                         completionText = quote + completionText + quote;
+                    }
+
+                    // on macOS, system processes names will be empty if PowerShell isn't run as `sudo`
+                    if (string.IsNullOrEmpty(listItemText))
+                    {
+                        continue;
                     }
 
                     result.Add(new CompletionResult(completionText, listItemText, CompletionResultType.ParameterValue, listItemText));
@@ -3738,8 +3754,8 @@ namespace System.Management.Automation
         {
             var wordToComplete = context.WordToComplete;
             var isQuoted = wordToComplete.Length > 0 && (wordToComplete[0].IsSingleQuote() || wordToComplete[0].IsDoubleQuote());
-            string prefix = "";
-            string suffix = "";
+            string prefix = string.Empty;
+            string suffix = string.Empty;
             if (isQuoted)
             {
                 prefix = suffix = wordToComplete.Substring(0, 1);
@@ -3781,7 +3797,7 @@ namespace System.Management.Automation
                     // if we only replace the minimum.
                     context.ReplacementIndex = typeNameToComplete.Extent.StartOffset + context.TokenAtCursor.Extent.StartOffset + 1;
                     context.ReplacementLength = wordToComplete.Length;
-                    prefix = suffix = "";
+                    prefix = suffix = string.Empty;
                 }
                 else
                 {
@@ -3895,7 +3911,6 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="prev">the argument that is right before the 'tab' location</param>
         /// <param name="position">the number of positional arguments before the 'tab' location</param>
@@ -3991,7 +4006,6 @@ namespace System.Management.Automation
         #region Filenames
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="fileName"></param>
         /// <returns></returns>
@@ -4441,7 +4455,6 @@ namespace System.Management.Automation
         #region Variable
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="variableName"></param>
         /// <returns></returns>
@@ -4574,7 +4587,7 @@ namespace System.Management.Automation
             if (colon == -1)
             {
                 pattern = "variable:" + wordToComplete + "*";
-                provider = "";
+                provider = string.Empty;
             }
             else
             {
@@ -5165,8 +5178,8 @@ namespace System.Management.Automation
             {
                 memberName = propertyInfo.Name;
                 getToolTip = () => ToStringCodeMethods.Type(propertyInfo.PropertyType) + " " + memberName
-                    + " { " + (propertyInfo.GetGetMethod() != null ? "get; " : "")
-                    + (propertyInfo.GetSetMethod() != null ? "set; " : "") + "}";
+                    + " { " + (propertyInfo.GetGetMethod() != null ? "get; " : string.Empty)
+                    + (propertyInfo.GetSetMethod() != null ? "set; " : string.Empty) + "}";
             }
             var fieldInfo = member as FieldInfo;
             if (fieldInfo != null)
@@ -5479,7 +5492,7 @@ namespace System.Management.Automation
                 if (typeof(ValueType).IsAssignableFrom(Type))
                     return "Struct ";
 
-                return ""; // what other interesting types are there?
+                return string.Empty; // what other interesting types are there?
             }
 
             internal override CompletionResult GetCompletionResult(string keyMatched, string prefix, string suffix)
@@ -6059,7 +6072,6 @@ namespace System.Management.Automation
         ///             D^
         ///         }
         ///     }
-        ///
         /// </summary>
         /// <param name="completionContext"></param>
         /// <param name="ast"></param>

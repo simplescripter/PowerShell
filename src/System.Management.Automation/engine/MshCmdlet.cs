@@ -277,13 +277,12 @@ namespace System.Management.Automation
         /// </exception>
         public string ExpandString(string source)
         {
-            if (null != _cmdlet)
+            if (_cmdlet != null)
                 _cmdlet.ThrowIfStopping();
             return _context.Engine.Expand(source);
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="commandName"></param>
         /// <param name="type"></param>
@@ -689,7 +688,6 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="sessionState"></param>
         /// <param name="scriptBlock"></param>
@@ -787,7 +785,7 @@ namespace System.Management.Automation
         private Collection<PSObject> InvokeScript(ScriptBlock sb, bool useNewScope,
             PipelineResultTypes writeToPipeline, IList input, params object[] args)
         {
-            if (null != _cmdlet)
+            if (_cmdlet != null)
                 _cmdlet.ThrowIfStopping();
 
             Cmdlet cmdletToUse = null;
@@ -879,7 +877,7 @@ namespace System.Management.Automation
         /// <exception cref="ParseException"></exception>
         public ScriptBlock NewScriptBlock(string scriptText)
         {
-            if (null != _commandRuntime)
+            if (_commandRuntime != null)
                 _commandRuntime.ThrowIfStopping();
 
             ScriptBlock result = ScriptBlock.Create(_context, scriptText);

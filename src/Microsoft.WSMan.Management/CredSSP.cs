@@ -60,7 +60,6 @@ namespace Microsoft.WSMan.Management
         #region Utilities
 
         /// <summary>
-        ///
         /// </summary>
         /// <returns>
         /// Returns a session object upon successful creation..otherwise
@@ -114,7 +113,7 @@ namespace Microsoft.WSMan.Management
         {
             WSManHelper helper = new WSManHelper(this);
             IWSManSession m_SessionObj = CreateWSManSession();
-            if (null == m_SessionObj)
+            if (m_SessionObj == null)
             {
                 return;
             }
@@ -180,7 +179,7 @@ namespace Microsoft.WSMan.Management
         {
             WSManHelper helper = new WSManHelper(this);
             IWSManSession m_SessionObj = CreateWSManSession();
-            if (null == m_SessionObj)
+            if (m_SessionObj == null)
             {
                 return;
             }
@@ -535,7 +534,6 @@ namespace Microsoft.WSMan.Management
         #endregion
 
         /// <summary>
-        ///
         /// </summary>
         /// <exception cref="InvalidOperationException">
         /// </exception>
@@ -549,7 +547,7 @@ namespace Microsoft.WSMan.Management
             }
 
             IWSManSession m_SessionObj = CreateWSManSession();
-            if (null == m_SessionObj)
+            if (m_SessionObj == null)
             {
                 return;
             }
@@ -630,7 +628,7 @@ namespace Microsoft.WSMan.Management
             }
 
             IWSManSession m_SessionObj = CreateWSManSession();
-            if (null == m_SessionObj)
+            if (m_SessionObj == null)
             {
                 return;
             }
@@ -681,7 +679,6 @@ namespace Microsoft.WSMan.Management
         }
 
         /// <summary>
-        ///
         /// </summary>
         private void UpdateCurrentUserRegistrySettings()
         {

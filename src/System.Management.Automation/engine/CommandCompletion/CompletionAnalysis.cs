@@ -473,6 +473,16 @@ namespace System.Management.Automation
                         replacementLength = 0;
                         break;
 
+                    case TokenKind.Semi:
+                        // Handle scenarios such as 'gci | Format-Table @{Label=...;<tab>'
+                        if (lastAst is HashtableAst)
+                        {
+                            result = GetResultForHashtable(completionContext);
+                            replacementIndex += 1;
+                            replacementLength = 0;
+                        }
+                        break;
+
                     case TokenKind.Number:
                         // Handle scenarios such as Get-Process -Id 5<tab> || Get-Process -Id 5210, 3<tab> || Get-Process -Id: 5210, 3<tab>
                         if (lastAst is ConstantExpressionAst &&
@@ -503,7 +513,7 @@ namespace System.Management.Automation
                         // Handle operator completion: 55 -<tab> || "string" -<tab> || (Get-Something) -<tab>
                         if (CompleteOperator(tokenAtCursor, lastAst))
                         {
-                            result = CompletionCompleters.CompleteOperator("");
+                            result = CompletionCompleters.CompleteOperator(string.Empty);
                             break;
                         }
 
@@ -537,10 +547,15 @@ namespace System.Management.Automation
                                 completionContext.ReplacementLength = replacementLength = 0;
                                 result = GetResultForAttributeArgument(completionContext, ref replacementIndex, ref replacementLength);
                             }
+                            else if (lastAst is HashtableAst hashTableAst && !(lastAst.Parent is DynamicKeywordStatementAst) && CheckForPendingAssignment(hashTableAst))
+                            {
+                                // Handle scenarios such as 'gci | Format-Table @{Label=<tab>' if incomplete parsing of the assignment.
+                                return null;
+                            }
                             else
                             {
-                                //
-                                // Handle auto completion for enum/dependson property of DSC resource,
+                                // Handle scenarios such as 'configuration foo { File ab { Attributes ='
+                                // (auto completion for enum/dependson property of DSC resource),
                                 // cursor is right after '=', '(' or '@('
                                 //
                                 // Configuration config
@@ -552,8 +567,7 @@ namespace System.Management.Automation
                                 //         DependsOn=(|
                                 //
                                 bool unused;
-                                result = GetResultForEnumPropertyValueOfDSCResource(completionContext, string.Empty,
-                                    ref replacementIndex, ref replacementLength, out unused);
+                                result = GetResultForEnumPropertyValueOfDSCResource(completionContext, string.Empty, ref replacementIndex, ref replacementLength, out unused);
                             }
                             break;
                         }
@@ -1301,7 +1315,6 @@ namespace System.Management.Automation
         ///             Us^
         ///         }
         ///     }
-        ///
         /// </summary>
         /// <param name="completionContext"></param>
         /// <param name="configureAst"></param>
@@ -1380,7 +1393,7 @@ namespace System.Management.Automation
             {
                 if (strConst.Value.Equals("$", StringComparison.Ordinal))
                 {
-                    completionContext.WordToComplete = "";
+                    completionContext.WordToComplete = string.Empty;
                     return CompletionCompleters.CompleteVariable(completionContext);
                 }
                 else
@@ -1742,13 +1755,15 @@ namespace System.Management.Automation
             {
                 PropertyInfo[] propertyInfos = attributeType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
                 List<CompletionResult> result = new List<CompletionResult>();
-                foreach (PropertyInfo pro in propertyInfos)
+                foreach (PropertyInfo property in propertyInfos)
                 {
-                    //Ignore TypeId (all attributes inherit it)
-                    if (pro.Name != "TypeId" && (pro.Name.StartsWith(argName, StringComparison.OrdinalIgnoreCase)))
+                    // Ignore getter-only properties, including 'TypeId' (all attributes inherit it).
+                    if (!property.CanWrite) { continue; }
+
+                    if (property.Name.StartsWith(argName, StringComparison.OrdinalIgnoreCase))
                     {
-                        result.Add(new CompletionResult(pro.Name, pro.Name, CompletionResultType.Property,
-                            pro.PropertyType.ToString() + " " + pro.Name));
+                        result.Add(new CompletionResult(property.Name, property.Name, CompletionResultType.Property,
+                            property.PropertyType.ToString() + " " + property.Name));
                     }
                 }
                 return result;

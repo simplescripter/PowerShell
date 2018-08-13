@@ -43,7 +43,8 @@ Describe "Set-Location" -Tags "CI" {
         $result | Should -BeOfType System.Management.Automation.PathInfo
     }
 
-    It "Should accept path containing wildcard characters" {
+    # https://github.com/PowerShell/PowerShell/issues/5752
+    It "Should accept path containing wildcard characters" -Pending {
         $null = New-Item -ItemType Directory -Path "$TestDrive\aa"
         $null = New-Item -ItemType Directory -Path "$TestDrive\ba"
         $testPath = New-Item -ItemType Directory -Path "$TestDrive\[ab]a"
@@ -51,6 +52,22 @@ Describe "Set-Location" -Tags "CI" {
         Set-Location $TestDrive
         Set-Location -Path "[ab]a"
         $(Get-Location).Path | Should -BeExactly $testPath.FullName
+    }
+
+    It "Should not use filesystem root folder if not in filesystem provider" -Skip:(!$IsWindows) {
+        # find filesystem root folder that doesn't exist in HKCU:
+        $foundFolder = $false
+        foreach ($folder in Get-ChildItem "${env:SystemDrive}\" -Directory) {
+            if (-Not (Test-Path "HKCU:\$($folder.Name)")) {
+                $testFolder = $folder.Name
+                $foundFolder = $true
+                break
+            }
+        }
+        $foundFolder | Should -BeTrue
+        Set-Location HKCU:\
+        { Set-Location ([System.IO.Path]::DirectorySeparatorChar + $testFolder) -ErrorAction Stop } |
+            Should -Throw -ErrorId "PathNotFound,Microsoft.PowerShell.Commands.SetLocationCommand"
     }
 
     Context 'Set-Location with no arguments' {
@@ -65,6 +82,66 @@ Describe "Set-Location" -Tags "CI" {
             Set-Location 'Env:'
             Set-Location
             (Get-Location).Path | Should -BeExactly (Get-PSProvider FileSystem).Home
+        }
+    }
+
+    It "Should set location to new drive's current working directory when path is the colon-terminated name of a different drive" {
+        try
+        {
+            $oldLocation = Get-Location
+            Set-Location 'TestDrive:\'
+            New-Item -Path 'TestDrive:\' -Name 'Directory1' -ItemType Directory
+            New-PSDrive -Name 'Z' -PSProvider FileSystem -Root 'TestDrive:\Directory1'
+            New-Item -Path 'Z:\' -Name 'Directory2' -ItemType Directory
+
+            Set-Location 'TestDrive:\Directory1'
+            $pathToTest1 = (Get-Location).Path
+            Set-Location 'Z:\Directory2'
+            $pathToTest2 = (Get-Location).Path
+
+            Set-Location 'TestDrive:'
+            (Get-Location).Path | Should -BeExactly $pathToTest1
+            Set-Location 'Z:'
+            (Get-Location).Path | Should -BeExactly $pathToTest2
+        }
+        finally
+        {
+            Set-Location $oldLocation
+            Remove-PSDrive -Name 'Z'
+        }
+    }
+
+    Context 'Set-Location with last location history' {
+
+        It 'Should go to last location when specifying minus as a path' {
+            $initialLocation = Get-Location
+            Set-Location ([System.IO.Path]::GetTempPath())
+            Set-Location -
+            (Get-Location).Path | Should -Be ($initialLocation).Path
+        }
+
+        It 'Should go back to previous locations when specifying minus twice' {
+            $initialLocation = (Get-Location).Path
+            Set-Location ([System.IO.Path]::GetTempPath())
+            $firstLocationChange = (Get-Location).Path
+            Set-Location ([System.Environment]::GetFolderPath("user"))
+            Set-Location -
+            (Get-Location).Path | Should -Be $firstLocationChange
+            Set-Location -
+            (Get-Location).Path | Should -Be $initialLocation
+        }
+
+        It 'Location History is limited' {
+            $initialLocation = (Get-Location).Path
+            $maximumLocationHistory = 20
+            foreach ($i in 1..$maximumLocationHistory) {
+                Set-Location ([System.IO.Path]::GetTempPath())
+            }
+            foreach ($i in 1..$maximumLocationHistory) {
+                Set-Location -
+            }
+            (Get-Location).Path | Should Be $initialLocation
+            { Set-Location - } | Should -Throw -ErrorId 'System.InvalidOperationException,Microsoft.PowerShell.Commands.SetLocationCommand'
         }
     }
 }

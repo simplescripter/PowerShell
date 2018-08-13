@@ -24,6 +24,19 @@ namespace Microsoft.PowerShell.Commands
     public sealed class TestModuleManifestCommand : ModuleCmdletBase
     {
         /// <summary>
+        /// Creates an instance of the Test-ModuleManifest command.
+        /// </summary>
+        public TestModuleManifestCommand()
+        {
+            // Test-ModuleManifest reads a manifest with ModuleCmdletBase.LoadModuleManifest().
+            // This will error on an edition-incompatible manifest loaded from the System32 path,
+            // unless BaseSkipEditionCheck is true. Since Test-ModuleManifest shouldn't care about
+            // module edition (it just tests manifest validity), we always want to set this rather
+            // than provide it as a switch on the cmdlet.
+            BaseSkipEditionCheck = true;
+        }
+
+        /// <summary>
         /// The output path for the generated file...
         /// </summary>
         [Parameter(Mandatory = true, ValueFromPipeline = true, Position = 0, ValueFromPipelineByPropertyName = true)]
@@ -131,7 +144,7 @@ namespace Microsoft.PowerShell.Commands
                         }
 
                         //RootModule can be null, empty string or point to a valid .psm1, , .cdxml, .xaml or .dll.  Anything else is invalid.
-                        if (module.RootModule != null && module.RootModule != "")
+                        if (module.RootModule != null && module.RootModule != string.Empty)
                         {
                             string rootModuleExt = System.IO.Path.GetExtension(module.RootModule);
                             if ((!IsValidFilePath(module.RootModule, module, true) && !IsValidGacAssembly(module.RootModule)) ||

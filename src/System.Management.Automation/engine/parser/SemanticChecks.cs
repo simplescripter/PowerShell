@@ -590,7 +590,7 @@ namespace System.Management.Automation.Language
                 var loop = parent as LoopStatementAst;
                 if (loop != null)
                 {
-                    if (LoopFlowException.MatchLoopLabel(label, loop.Label ?? ""))
+                    if (LoopFlowException.MatchLoopLabel(label, loop.Label ?? string.Empty))
                         break;
                 }
             }
@@ -619,9 +619,9 @@ namespace System.Management.Automation.Language
                 // If label is not null, we have a break/continue where we know the loop label at compile
                 // time. If we can match the label before finding the finally, then we're not flowing out
                 // of the finally.
-                if (label != null && parent is LoopStatementAst)
+                if (label != null && parent is LabeledStatementAst)
                 {
-                    if (LoopFlowException.MatchLoopLabel(label, ((LoopStatementAst)parent).Label ?? ""))
+                    if (LoopFlowException.MatchLoopLabel(label, ((LabeledStatementAst)parent).Label ?? string.Empty))
                         break;
                 }
 
@@ -646,7 +646,7 @@ namespace System.Management.Automation.Language
             // we just use the empty string.
             if (expr == null)
             {
-                return "";
+                return string.Empty;
             }
 
             var str = expr as StringConstantExpressionAst;

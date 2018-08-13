@@ -33,7 +33,7 @@ try {
     Import-Module "$location/tools/packaging"
 
     Start-PSBootstrap -Package -NoSudo
-    Start-PSBuild -Crossgen -PSModuleRestore @releaseTagParam
+    Start-PSBuild -Configuration Release -Crossgen -PSModuleRestore @releaseTagParam
 
     Start-PSPackage @releaseTagParam
     if ($AppImage) { Start-PSPackage -Type AppImage @releaseTagParam }
@@ -42,7 +42,7 @@ try {
     if ($TarArm) {
         ## Build 'linux-arm' and create 'tar.gz' package for it.
         ## Note that 'linux-arm' can only be built on Ubuntu environment.
-        Start-PSBuild -Restore -Runtime linux-arm -PSModuleRestore @releaseTagParam
+        Start-PSBuild -Configuration Release -Restore -Runtime linux-arm -PSModuleRestore @releaseTagParam
         Start-PSPackage -Type tar-arm @releaseTagParam
     }
 }
@@ -58,3 +58,20 @@ foreach ($linuxPackage in $linuxPackages)
     Write-Verbose "Copying $filePath to $destination" -Verbose
     Copy-Item -Path $filePath -Destination $destination -force
 }
+
+Write-Verbose "Exporting project.assets files ..." -verbose
+
+$projectAssetsCounter = 1
+$projectAssetsFolder = Join-Path -Path $destination -ChildPath 'projectAssets'
+$projectAssetsZip = Join-Path -Path $destination -ChildPath 'projectAssetssymbols.zip'
+Get-ChildItem $location\project.assets.json -Recurse | ForEach-Object {
+    $itemDestination = Join-Path -Path $projectAssetsFolder -ChildPath $projectAssetsCounter
+    New-Item -Path $itemDestination -ItemType Directory -Force
+    $file = $_.FullName
+    Write-Verbose "Copying $file to $itemDestination" -verbose
+    Copy-Item -Path $file -Destination "$itemDestination\" -Force
+    $projectAssetsCounter++
+}
+
+Compress-Archive -Path $projectAssetsFolder -DestinationPath $projectAssetsZip
+Remove-Item -Path $projectAssetsFolder -Recurse -Force -ErrorAction SilentlyContinue

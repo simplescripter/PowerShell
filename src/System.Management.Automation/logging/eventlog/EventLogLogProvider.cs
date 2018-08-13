@@ -20,7 +20,6 @@ namespace System.Management.Automation
     ///
     /// EventLogLogProvider will be packaged in the same dll as Msh Log Engine since EventLog should
     /// always be available.
-    ///
     /// </summary>
     internal class EventLogLogProvider : LogProvider
     {
@@ -100,7 +99,7 @@ namespace System.Management.Automation
             Hashtable mapArgs = new Hashtable();
 
             IContainsErrorRecord icer = exception as IContainsErrorRecord;
-            if (null != icer && null != icer.ErrorRecord)
+            if (icer != null && icer.ErrorRecord != null)
             {
                 mapArgs["ExceptionClass"] = exception.GetType().Name;
                 mapArgs["ErrorCategory"] = icer.ErrorRecord.CategoryInfo.Category;
@@ -118,8 +117,8 @@ namespace System.Management.Automation
             else
             {
                 mapArgs["ExceptionClass"] = exception.GetType().Name;
-                mapArgs["ErrorCategory"] = "";
-                mapArgs["ErrorId"] = "";
+                mapArgs["ErrorCategory"] = string.Empty;
+                mapArgs["ErrorId"] = string.Empty;
                 mapArgs["ErrorMessage"] = exception.Message;
             }
 
@@ -213,7 +212,6 @@ namespace System.Management.Automation
         /// </summary>
         /// <param name="logContext"></param>
         /// <param name="exception"></param>
-        ///
         internal override void LogCommandHealthEvent(LogContext logContext, Exception exception)
         {
             int eventId = _commandHealthEventId;
@@ -221,7 +219,7 @@ namespace System.Management.Automation
             Hashtable mapArgs = new Hashtable();
 
             IContainsErrorRecord icer = exception as IContainsErrorRecord;
-            if (null != icer && null != icer.ErrorRecord)
+            if (icer != null && icer.ErrorRecord != null)
             {
                 mapArgs["ExceptionClass"] = exception.GetType().Name;
                 mapArgs["ErrorCategory"] = icer.ErrorRecord.CategoryInfo.Category;
@@ -239,8 +237,8 @@ namespace System.Management.Automation
             else
             {
                 mapArgs["ExceptionClass"] = exception.GetType().Name;
-                mapArgs["ErrorCategory"] = "";
-                mapArgs["ErrorId"] = "";
+                mapArgs["ErrorCategory"] = string.Empty;
+                mapArgs["ErrorId"] = string.Empty;
                 mapArgs["ErrorMessage"] = exception.Message;
             }
 
@@ -389,7 +387,6 @@ namespace System.Management.Automation
         /// <param name="logContext"></param>
         /// <param name="providerName"></param>
         /// <param name="exception"></param>
-        ///
         internal override void LogProviderHealthEvent(LogContext logContext, string providerName, Exception exception)
         {
             int eventId = _providerHealthEventId;
@@ -399,7 +396,7 @@ namespace System.Management.Automation
             mapArgs["ProviderName"] = providerName;
 
             IContainsErrorRecord icer = exception as IContainsErrorRecord;
-            if (null != icer && null != icer.ErrorRecord)
+            if (icer != null && icer.ErrorRecord != null)
             {
                 mapArgs["ExceptionClass"] = exception.GetType().Name;
                 mapArgs["ErrorCategory"] = icer.ErrorRecord.CategoryInfo.Category;
@@ -418,8 +415,8 @@ namespace System.Management.Automation
             else
             {
                 mapArgs["ExceptionClass"] = exception.GetType().Name;
-                mapArgs["ErrorCategory"] = "";
-                mapArgs["ErrorId"] = "";
+                mapArgs["ErrorCategory"] = string.Empty;
+                mapArgs["ErrorId"] = string.Empty;
                 mapArgs["ErrorMessage"] = exception.Message;
             }
 
@@ -587,8 +584,8 @@ namespace System.Management.Automation
                 {
                     string id = ((int)(i + 1)).ToString("d1", CultureInfo.CurrentCulture);
 
-                    mapArgs["AdditionalInfo_Name" + id] = "";
-                    mapArgs["AdditionalInfo_Value" + id] = "";
+                    mapArgs["AdditionalInfo_Name" + id] = string.Empty;
+                    mapArgs["AdditionalInfo_Value" + id] = string.Empty;
                 }
 
                 return;
@@ -610,8 +607,8 @@ namespace System.Management.Automation
                 }
                 else
                 {
-                    mapArgs["AdditionalInfo_Name" + id] = "";
-                    mapArgs["AdditionalInfo_Value" + id] = "";
+                    mapArgs["AdditionalInfo_Name" + id] = string.Empty;
+                    mapArgs["AdditionalInfo_Value" + id] = string.Empty;
                 }
             }
 
@@ -630,12 +627,12 @@ namespace System.Management.Automation
         private string GetMessage(string messageId, Hashtable mapArgs)
         {
             if (_resourceManager == null)
-                return "";
+                return string.Empty;
 
             string messageTemplate = _resourceManager.GetString(messageId);
 
             if (String.IsNullOrEmpty(messageTemplate))
-                return "";
+                return string.Empty;
 
             return FillMessageTemplate(messageTemplate, mapArgs);
         }

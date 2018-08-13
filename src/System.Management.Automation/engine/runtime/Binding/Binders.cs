@@ -14,6 +14,7 @@ using System.Management.Automation.Internal;
 using System.Management.Automation.Runspaces;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -619,7 +620,7 @@ namespace System.Management.Automation.Language
                     GetRestrictions(target))).WriteToDebugLog(this);
             }
 
-            if (Utils.IsComObject(targetValue))
+            if (Marshal.IsComObject(targetValue))
             {
                 // Pretend that all com objects are enumerable, even if they aren't.  We do this because it's technically impossible
                 // to know if a com object is enumerable without just trying to cast it to IEnumerable.  We could generate a rule like:
@@ -715,7 +716,12 @@ namespace System.Management.Automation.Language
 
         private static IEnumerator NotEnumerableRule(CallSite site, object obj)
         {
-            if (!(obj is PSObject) && !(obj is IEnumerable) && !(obj is IEnumerator) && !(obj is DataTable) && !Utils.IsComObject(obj))
+            if (obj == null)
+            {
+                return null;
+            }
+
+            if (!(obj is PSObject) && !(obj is IEnumerable) && !(obj is IEnumerator) && !(obj is DataTable) && !Marshal.IsComObject(obj))
             {
                 return null;
             }
@@ -2194,7 +2200,7 @@ namespace System.Management.Automation.Language
 
         public override string ToString()
         {
-            return string.Format(CultureInfo.InvariantCulture, "PSBinaryOperationBinder {0}{1} ver:{2}", GetOperatorText(), _scalarCompare ? " scalarOnly" : "", _version);
+            return string.Format(CultureInfo.InvariantCulture, "PSBinaryOperationBinder {0}{1} ver:{2}", GetOperatorText(), _scalarCompare ? " scalarOnly" : string.Empty, _version);
         }
 
         internal static void InvalidateCache()
@@ -2231,7 +2237,7 @@ namespace System.Management.Automation.Language
                 case ExpressionType.RightShift: return TokenKind.Shr.Text();
             }
             Diagnostics.Assert(false, "Unexpected operator");
-            return "";
+            return string.Empty;
         }
 
         private static DynamicMetaObject CallImplicitOp(string methodName, DynamicMetaObject target, DynamicMetaObject arg, string errorOperator, DynamicMetaObject errorSuggestion)
@@ -3862,8 +3868,8 @@ namespace System.Management.Automation.Language
             return string.Format(CultureInfo.InvariantCulture,
                                  "PSGetIndexBinder indexCount={0}{1}{2} ver:{3}",
                                  this.CallInfo.ArgumentCount,
-                                 _allowSlicing ? "" : " slicing disallowed",
-                                 _constraints == null ? "" : " constraints: " + _constraints,
+                                 _allowSlicing ? string.Empty : " slicing disallowed",
+                                 _constraints == null ? string.Empty : " constraints: " + _constraints,
                                  _version);
         }
 
@@ -4388,7 +4394,7 @@ namespace System.Management.Automation.Language
         public override string ToString()
         {
             return string.Format(CultureInfo.InvariantCulture, "PSSetIndexBinder indexCnt={0}{1} ver:{2}",
-                CallInfo.ArgumentCount, _constraints == null ? "" : " constraints: " + _constraints, _version);
+                CallInfo.ArgumentCount, _constraints == null ? string.Empty : " constraints: " + _constraints, _version);
         }
 
         internal static void InvalidateCache()
@@ -4842,7 +4848,7 @@ namespace System.Management.Automation.Language
 
             lock (binderList)
             {
-                if (!binderList.Any())
+                if (binderList.Count == 0)
                 {
                     // Force one binder to be created if one hasn't been created already.
                     PSGetMemberBinder.Get(memberName, (Type)null, @static: false);
@@ -4974,7 +4980,7 @@ namespace System.Management.Automation.Language
         public override string ToString()
         {
             return string.Format(CultureInfo.InvariantCulture, "GetMember: {0}{1}{2} ver:{3}",
-                Name, _static ? " static" : "", _nonEnumerating ? " nonEnumerating" : "", _version);
+                Name, _static ? " static" : string.Empty, _nonEnumerating ? " nonEnumerating" : string.Empty, _version);
         }
 
         public override DynamicMetaObject FallbackGetMember(DynamicMetaObject target, DynamicMetaObject errorSuggestion)
@@ -4988,7 +4994,7 @@ namespace System.Management.Automation.Language
             if (target.Value is PSObject && (PSObject.Base(target.Value) != target.Value))
             {
                 Object baseObject = PSObject.Base(target.Value);
-                if (baseObject != null && Utils.IsComObject(baseObject))
+                if (baseObject != null && Marshal.IsComObject(baseObject))
                 {
                     // We unwrap only if the 'base' is a COM object. It's unnecessary to unwrap in other cases,
                     // especially in the case of strings, we would lose instance members on the PSObject.
@@ -5388,7 +5394,7 @@ namespace System.Management.Automation.Language
         private PSMemberInfo ResolveAlias(PSAliasProperty alias, DynamicMetaObject target, HashSet<string> aliases,
             List<BindingRestrictions> aliasRestrictions)
         {
-            Diagnostics.Assert(null != aliasRestrictions, "aliasRestrictions cannot be null");
+            Diagnostics.Assert(aliasRestrictions != null, "aliasRestrictions cannot be null");
             if (aliases == null)
             {
                 aliases = new HashSet<string> { alias.Name };
@@ -5519,7 +5525,7 @@ namespace System.Management.Automation.Language
             if (alias != null)
             {
                 aliasConversionType = alias.ConversionType;
-                if (null == aliasRestrictions)
+                if (aliasRestrictions == null)
                 {
                     aliasRestrictions = new List<BindingRestrictions>();
                 }
@@ -5661,7 +5667,7 @@ namespace System.Management.Automation.Language
             {
                 ConsolidatedString typenames = PSObject.GetTypeNames(obj);
                 memberInfo = context.TypeTable.GetMembers<PSMemberInfo>(typenames)[member];
-                if (null != memberInfo)
+                if (memberInfo != null)
                 {
                     memberInfo = CloneMemberInfo(memberInfo, obj);
                 }
@@ -5815,7 +5821,7 @@ namespace System.Management.Automation.Language
 
         public override string ToString()
         {
-            return string.Format(CultureInfo.InvariantCulture, "SetMember: {0}{1} ver:{2}", _static ? "static " : "", Name, _getMemberBinder._version);
+            return string.Format(CultureInfo.InvariantCulture, "SetMember: {0}{1} ver:{2}", _static ? "static " : string.Empty, Name, _getMemberBinder._version);
         }
 
         private Expression GetTransformedExpression(IEnumerable<ArgumentTransformationAttribute> transformationAttributes, Expression originalExpression)
@@ -5859,7 +5865,7 @@ namespace System.Management.Automation.Language
                 (value.Value is PSObject && (PSObject.Base(value.Value) != value.Value)))
             {
                 Object baseObject = PSObject.Base(target.Value);
-                if (baseObject != null && Utils.IsComObject(baseObject))
+                if (baseObject != null && Marshal.IsComObject(baseObject))
                 {
                     // We unwrap only if the 'base' of 'target' is a COM object. It's unnecessary to unwrap in other cases,
                     // especially in the case that 'target' is a string, we would lose instance members on the PSObject.
@@ -6203,7 +6209,7 @@ namespace System.Management.Automation.Language
                 {
                     ConsolidatedString typenames = PSObject.GetTypeNames(obj);
                     memberInfo = context.TypeTable.GetMembers<PSMemberInfo>(typenames)[member];
-                    if (null != memberInfo)
+                    if (memberInfo != null)
                     {
                         memberInfo = PSGetMemberBinder.CloneMemberInfo(memberInfo, obj);
                     }
@@ -6364,8 +6370,8 @@ namespace System.Management.Automation.Language
         public override string ToString()
         {
             return string.Format(CultureInfo.InvariantCulture,
-                "PSInvokeMember: {0}{1}{2} ver:{3} args:{4} constraints:<{5}>", _static ? "static " : "", _propertySetter ? "propset " : "",
-                Name, _getMemberBinder._version, CallInfo.ArgumentCount, _invocationConstraints != null ? _invocationConstraints.ToString() : "");
+                "PSInvokeMember: {0}{1}{2} ver:{3} args:{4} constraints:<{5}>", _static ? "static " : string.Empty, _propertySetter ? "propset " : string.Empty,
+                Name, _getMemberBinder._version, CallInfo.ArgumentCount, _invocationConstraints != null ? _invocationConstraints.ToString() : string.Empty);
         }
 
         public override DynamicMetaObject FallbackInvokeMember(DynamicMetaObject target, DynamicMetaObject[] args, DynamicMetaObject errorSuggestion)
@@ -6380,7 +6386,7 @@ namespace System.Management.Automation.Language
                 args.Any(mo => mo.Value is PSObject && (PSObject.Base(mo.Value) != mo.Value)))
             {
                 Object baseObject = PSObject.Base(target.Value);
-                if (baseObject != null && Utils.IsComObject(baseObject))
+                if (baseObject != null && Marshal.IsComObject(baseObject))
                 {
                     // We unwrap only if the 'base' of 'target' is a COM object. It's unnecessary to unwrap in other cases,
                     // especially in the case that 'target' is a string, we would lose instance members on the PSObject.
@@ -7241,7 +7247,7 @@ namespace System.Management.Automation.Language
         public override string ToString()
         {
             return string.Format(CultureInfo.InvariantCulture,
-                "PSCreateInstanceBinder: ver:{0} args:{1} constraints:<{2}>", _version, _callInfo.ArgumentCount, _constraints != null ? _constraints.ToString() : "");
+                "PSCreateInstanceBinder: ver:{0} args:{1} constraints:<{2}>", _version, _callInfo.ArgumentCount, _constraints != null ? _constraints.ToString() : string.Empty);
         }
 
         public override DynamicMetaObject FallbackCreateInstance(DynamicMetaObject target, DynamicMetaObject[] args, DynamicMetaObject errorSuggestion)

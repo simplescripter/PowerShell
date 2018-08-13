@@ -23,9 +23,9 @@ using System.Runtime.Serialization;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Management.Infrastructure;
-
-#if !CORECLR
+#if !UNIX
 using System.DirectoryServices;
+using System.Management;
 #endif
 
 #pragma warning disable 1634, 1691 // Stops compiler from warning about unknown warnings
@@ -171,7 +171,7 @@ namespace System.Management.Automation
         private static PSMemberInfoInternalCollection<T> DotNetGetMembersDelegate<T>(PSObject msjObj) where T : PSMemberInfo
         {
             // Don't lookup dotnet members if the object doesn't insist.
-            if (null != msjObj.InternalBaseDotNetAdapter)
+            if (msjObj.InternalBaseDotNetAdapter != null)
             {
                 PSMemberInfoInternalCollection<T> retValue = msjObj.InternalBaseDotNetAdapter.BaseGetMembers<T>(msjObj._immediateBaseObject);
                 PSObject.memberResolution.WriteLine("DotNet members: {0}.", retValue.VisibleCount);
@@ -184,7 +184,7 @@ namespace System.Management.Automation
         private static T DotNetGetMemberDelegate<T>(PSObject msjObj, string name) where T : PSMemberInfo
         {
             // Don't lookup dotnet member if the object doesn't insist.
-            if (null != msjObj.InternalBaseDotNetAdapter)
+            if (msjObj.InternalBaseDotNetAdapter != null)
             {
                 T retValue = msjObj.InternalBaseDotNetAdapter.BaseGetMember<T>(msjObj._immediateBaseObject, name);
                 PSObject.memberResolution.WriteLine("DotNet member: {0}.", retValue == null ? "not found" : retValue.Name);
@@ -379,8 +379,7 @@ namespace System.Management.Automation
             new PSObject.AdapterSet(new ThirdPartyAdapter(typeof(Microsoft.Management.Infrastructure.CimInstance),
                                                           new Microsoft.PowerShell.Cim.CimInstanceAdapter()),
                                     PSObject.dotNetInstanceAdapter);
-
-#if !CORECLR // WMIv1/ADSI Adapters Not Supported in PowerShell Core
+#if !UNIX
         private static readonly AdapterSet managementObjectAdapter = new AdapterSet(new ManagementObjectAdapter(), dotNetInstanceAdapter);
         private static readonly AdapterSet managementClassAdapter = new AdapterSet(new ManagementClassApdapter(), dotNetInstanceAdapter);
         private static readonly AdapterSet directoryEntryAdapter = new AdapterSet(new DirectoryEntryAdapter(), dotNetInstanceAdapter);
@@ -410,8 +409,7 @@ namespace System.Management.Automation
             if (obj is PSMemberSet) { return PSObject.s_mshMemberSetAdapter; }
             if (obj is PSObject) { return PSObject.s_mshObjectAdapter; }
             if (obj is CimInstance) { return PSObject.s_cimInstanceAdapter; }
-
-#if !CORECLR // WMIv1/ADSI Adapters Not Supported in PowerShell Core
+#if !UNIX
             if (obj is ManagementClass) { return PSObject.managementClassAdapter; }
             if (obj is ManagementBaseObject) { return PSObject.managementObjectAdapter; }
             if (obj is DirectoryEntry) { return PSObject.directoryEntryAdapter; }
@@ -524,6 +522,16 @@ namespace System.Management.Automation
         }
 
         /// <summary>
+        /// Initializes a new instance of PSObject with an PSCustomObject BaseObject
+        /// with an initial capacity for members
+        /// </summary>
+        /// <param name="instanceMemberCapacity">The initial capacity for the instance member collection.</param>
+        public PSObject(int instanceMemberCapacity) : this()
+        {
+            _instanceMembers = new PSMemberInfoInternalCollection<PSMemberInfo>(instanceMemberCapacity);
+        }
+
+        /// <summary>
         /// Initializes a new instance of PSObject wrapping obj (accessible through BaseObject).
         /// </summary>
         /// <param name="obj">object we are wrapping</param>
@@ -631,11 +639,11 @@ namespace System.Management.Automation
         {
             get
             {
-                if (null == _adapterSet)
+                if (_adapterSet == null)
                 {
                     lock (_lockObject)
                     {
-                        if (null == _adapterSet)
+                        if (_adapterSet == null)
                         {
                             _adapterSet = GetMappedAdapter(_immediateBaseObject, GetTypeTable());
                         }
@@ -932,7 +940,6 @@ namespace System.Management.Automation
         #region static methods
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="valueToConvert"></param>
         /// <returns></returns>
@@ -941,7 +948,6 @@ namespace System.Management.Automation
             return PSObject.AsPSObject(valueToConvert);
         }
         /// <summary>
-        ///
         /// </summary>
         /// <param name="valueToConvert"></param>
         /// <returns></returns>
@@ -950,7 +956,6 @@ namespace System.Management.Automation
             return PSObject.AsPSObject(valueToConvert);
         }
         /// <summary>
-        ///
         /// </summary>
         /// <param name="valueToConvert"></param>
         /// <returns></returns>
@@ -959,7 +964,6 @@ namespace System.Management.Automation
             return PSObject.AsPSObject(valueToConvert);
         }
         /// <summary>
-        ///
         /// </summary>
         /// <param name="valueToConvert"></param>
         /// <returns></returns>
@@ -968,7 +972,6 @@ namespace System.Management.Automation
             return PSObject.AsPSObject(valueToConvert);
         }
         /// <summary>
-        ///
         /// </summary>
         /// <param name="valueToConvert"></param>
         /// <returns></returns>
@@ -1807,7 +1810,6 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="settings"></param>
         /// <param name="noteName"></param>
@@ -1851,7 +1853,7 @@ namespace System.Management.Automation
             int result = 0;
 
             TypeTable typeTable = backupTypeTable ?? this.GetTypeTable();
-            if (null != typeTable)
+            if (typeTable != null)
             {
                 PSMemberSet standardMemberSet = TypeTableGetMemberDelegate<PSMemberSet>(this,
                     typeTable, TypeTable.PSStandardMembers);
@@ -1888,7 +1890,7 @@ namespace System.Management.Automation
             SerializationMethod result = TypeTable.defaultSerializationMethod;
 
             TypeTable typeTable = backupTypeTable ?? this.GetTypeTable();
-            if (null != typeTable)
+            if (typeTable != null)
             {
                 PSMemberSet standardMemberSet = TypeTableGetMemberDelegate<PSMemberSet>(this,
                     typeTable, TypeTable.PSStandardMembers);
@@ -1927,7 +1929,7 @@ namespace System.Management.Automation
             {
                 PSMemberSet standardMemberSet = TypeTableGetMemberDelegate<PSMemberSet>(
                     this, typeTable, TypeTable.PSStandardMembers);
-                if (null != standardMemberSet)
+                if (standardMemberSet != null)
                 {
                     standardMemberSet.ReplicateInstance(this);
                     PSMemberInfoIntegratingCollection<PSMemberInfo> members =
@@ -1953,7 +1955,7 @@ namespace System.Management.Automation
         internal Type GetTargetTypeForDeserialization(TypeTable backupTypeTable)
         {
             PSMemberInfo targetType = this.GetPSStandardMember(backupTypeTable, TypeTable.TargetTypeForDeserialization);
-            if (null != targetType)
+            if (targetType != null)
             {
                 return (targetType.Value as Type);
             }
@@ -1975,7 +1977,7 @@ namespace System.Management.Automation
         internal Collection<string> GetSpecificPropertiesToSerialize(TypeTable backupTypeTable)
         {
             TypeTable typeTable = backupTypeTable ?? this.GetTypeTable();
-            if (null != typeTable)
+            if (typeTable != null)
             {
                 Collection<string> tmp = typeTable.GetSpecificProperties(this.InternalTypeNames);
                 return tmp;
@@ -2362,12 +2364,11 @@ namespace System.Management.Automation
         /// </summary>
         public override string ToString()
         {
-            return "";
+            return string.Empty;
         }
     }
 
     /// <summary>
-    ///
     /// </summary>
     /// <remarks>
     /// Please keep in sync with SerializationMethod from

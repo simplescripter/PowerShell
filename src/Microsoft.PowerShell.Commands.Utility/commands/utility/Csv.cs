@@ -16,23 +16,20 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Gets or sets the delimiter that separates the values
+        /// Gets or sets the delimiter that separates the values.
         /// </summary>
-        ///
         internal char Delimiter { get; } = ',';
 
         /// <summary>
         /// Parse a CSV String.
         /// </summary>
-        ///
         /// <param name="csv">
-        /// String to be parsed
+        /// String to be parsed.
         /// </param>
-        ///
         internal Collection<string> ParseCsv(string csv)
         {
             Collection<string> result = new Collection<string>();
-            string tempString = "";
+            string tempString = string.Empty;
             csv = csv.Trim();
             if (csv.Length == 0 || csv[0] == '#')
             {
@@ -47,7 +44,7 @@ namespace Microsoft.PowerShell.Commands
                     if (!inQuote)
                     {
                         result.Add(tempString);
-                        tempString = "";
+                        tempString = string.Empty;
                     }
                     else
                     {
@@ -66,7 +63,7 @@ namespace Microsoft.PowerShell.Commands
                                 if (i == csv.Length - 1)
                                 {
                                     result.Add(tempString);
-                                    tempString = "";
+                                    tempString = string.Empty;
                                     inQuote = false;
                                     break;
                                 }
@@ -74,7 +71,7 @@ namespace Microsoft.PowerShell.Commands
                                 if (csv[i + 1] == Delimiter)
                                 {
                                     result.Add(tempString);
-                                    tempString = "";
+                                    tempString = string.Empty;
                                     inQuote = false;
                                     i++;
                                 }
@@ -98,9 +95,9 @@ namespace Microsoft.PowerShell.Commands
                         default:
                             tempString += c;
                             break;
-                    }//switch
-                }//else
-            }//for int
+                    }
+                }
+            }
             if (tempString.Length > 0)
             {
                 result.Add(tempString);
@@ -109,4 +106,3 @@ namespace Microsoft.PowerShell.Commands
         }
     }
 }
-

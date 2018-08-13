@@ -70,12 +70,6 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// The existence of the following registry confirms that the host machine is a WinPE
-        /// HKLM\System\CurrentControlSet\Control\MiniNT
-        /// </summary>
-        internal static string WinPEIdentificationRegKey = @"System\CurrentControlSet\Control\MiniNT";
-
-        /// <summary>
         /// Allowed PowerShell Editions
         /// </summary>
         internal static string[] AllowedEditionValues = { "Desktop", "Core" };
@@ -83,10 +77,8 @@ namespace System.Management.Automation
         /// <summary>
         /// helper fn to check byte[] arg for null.
         /// </summary>
-        ///
         ///<param name="arg"> arg to check </param>
         ///<param name="argName"> name of the arg </param>
-        ///
         ///<returns> Does not return a value </returns>
         internal static void CheckKeyArg(byte[] arg, string argName)
         {
@@ -112,10 +104,8 @@ namespace System.Management.Automation
         /// helper fn to check arg for empty or null.
         /// Throws ArgumentNullException on either condition.
         /// </summary>
-        ///
         ///<param name="arg"> arg to check </param>
         ///<param name="argName"> name of the arg </param>
-        ///
         ///<returns> Does not return a value </returns>
         internal static void CheckArgForNullOrEmpty(string arg, string argName)
         {
@@ -133,10 +123,8 @@ namespace System.Management.Automation
         /// helper fn to check arg for null.
         /// Throws ArgumentNullException on either condition.
         /// </summary>
-        ///
         ///<param name="arg"> arg to check </param>
         ///<param name="argName"> name of the arg </param>
-        ///
         ///<returns> Does not return a value </returns>
         internal static void CheckArgForNull(object arg, string argName)
         {
@@ -149,10 +137,8 @@ namespace System.Management.Automation
         /// <summary>
         /// helper fn to check arg for null.
         /// </summary>
-        ///
         ///<param name="arg"> arg to check </param>
         ///<param name="argName"> name of the arg </param>
-        ///
         ///<returns> Does not return a value </returns>
         internal static void CheckSecureStringArg(SecureString arg, string argName)
         {
@@ -344,7 +330,7 @@ namespace System.Management.Automation
             {
                 // The existence of the following registry confirms that the host machine is a WinPE
                 // HKLM\System\CurrentControlSet\Control\MiniNT
-                winPEKey = Registry.LocalMachine.OpenSubKey(WinPEIdentificationRegKey);
+                winPEKey = Registry.LocalMachine.OpenSubKey(@"System\CurrentControlSet\Control\MiniNT");
 
                 return winPEKey != null;
             }
@@ -457,7 +443,7 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Checks whether current monad session supports edition specified
+        /// Checks whether current PowerShell session supports edition specified
         /// by checkEdition.
         /// </summary>
         /// <param name="checkEdition">Edition to check</param>
@@ -468,7 +454,26 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        /// Checks whether the specified edition values is allowed.
+        /// Check whether the current PowerShell session supports any of the specified editions.
+        /// </summary>
+        /// <param name="editions">The PowerShell editions to check compatibility with.</param>
+        /// <returns>True if the edition is supported by this runtime, false otherwise.</returns>
+        internal static bool IsPSEditionSupported(IEnumerable<string> editions)
+        {
+            string currentPSEdition = PSVersionInfo.PSEdition;
+            foreach (string edition in editions)
+            {
+                if (currentPSEdition.Equals(edition, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Checks whether the specified edition value is allowed.
         /// </summary>
         /// <param name="editionValue">Edition value to check</param>
         /// <returns>true if allowed, false otherwise</returns>
@@ -505,7 +510,7 @@ namespace System.Management.Automation
             T policy = null;
 #if !UNIX
             // On Windows, group policy settings from registry take precedence.
-            // If the requested policy is not defined in registry, we query the configuration file. 
+            // If the requested policy is not defined in registry, we query the configuration file.
             policy = GetPolicySettingFromGPO<T>(preferenceOrder);
             if (policy != null) { return policy; }
 #endif
@@ -743,7 +748,7 @@ namespace System.Management.Automation
                     finally
                     {
                         context.AutoLoadingModuleInProgress.Remove(module);
-                        if (null != ps)
+                        if (ps != null)
                         {
                             ps.Dispose();
                         }
@@ -807,7 +812,7 @@ namespace System.Management.Automation
             }
             finally
             {
-                if (null != ps)
+                if (ps != null)
                 {
                     ps.Dispose();
                 }
@@ -868,7 +873,7 @@ namespace System.Management.Automation
             }
             finally
             {
-                if (null != ps)
+                if (ps != null)
                 {
                     ps.Dispose();
                 }
@@ -893,117 +898,6 @@ namespace System.Management.Automation
 
             return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
 #endif
-        }
-
-        internal static bool NativeItemExists(string path)
-        {
-            bool unusedIsDirectory;
-            Exception unusedException;
-
-            return NativeItemExists(path, out unusedIsDirectory, out unusedException);
-        }
-
-        // This is done through P/Invoke since File.Exists and Directory.Exists pay 13% performance degradation
-        // through the CAS checks, and are terribly slow for network paths.
-        internal static bool NativeItemExists(string path, out bool isDirectory, out Exception exception)
-        {
-            exception = null;
-
-            if (String.IsNullOrEmpty(path))
-            {
-                isDirectory = false;
-                return false;
-            }
-#if UNIX
-            isDirectory = Platform.NonWindowsIsDirectory(path);
-            return Platform.NonWindowsIsFile(path);
-#else
-
-            if (IsReservedDeviceName(path))
-            {
-                isDirectory = false;
-                return false;
-            }
-
-            int result = NativeMethods.GetFileAttributes(path);
-            if (result == -1)
-            {
-                int errorCode = Marshal.GetLastWin32Error();
-                if (errorCode == 5)
-                {
-                    // Handle "Access denied" specifically.
-                    Win32Exception win32Exception = new Win32Exception(errorCode);
-                    exception = new UnauthorizedAccessException(win32Exception.Message, win32Exception);
-                }
-                else if (errorCode == 32)
-                {
-                    // Errorcode 32 is 'ERROR_SHARING_VIOLATION' i.e.
-                    // The process cannot access the file because it is being used by another process.
-                    // GetFileAttributes may return INVALID_FILE_ATTRIBUTES for a system file or directory because of this error.
-                    // GetFileAttributes function tries to open the file with FILE_READ_ATTRIBUTES access right but it fails if the
-                    // sharing flag for the file is set to 0x00000000.This flag prevents it from opening a file for delete, read, or
-                    // write access. For example: C:\pagefile.sys is always opened by OS with sharing flag 0x00000000.
-                    // But FindFirstFile is still able to get attributes as this api retrieves the required information using a find
-                    // handle generated with FILE_LIST_DIRECTORY access.
-                    // Fall back to FindFirstFile to check if the file actually exists.
-                    IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
-                    NativeMethods.WIN32_FIND_DATA findData;
-                    IntPtr findHandle = NativeMethods.FindFirstFile(path, out findData);
-                    if (findHandle != INVALID_HANDLE_VALUE)
-                    {
-                        isDirectory = (findData.dwFileAttributes & NativeMethods.FileAttributes.Directory) != 0;
-                        NativeMethods.FindClose(findHandle);
-                        return true;
-                    }
-                }
-                else if (errorCode == 53)
-                {
-                    // ERROR_BAD_NETPATH - The network path was not found.
-                    Win32Exception win32Exception = new Win32Exception(errorCode);
-                    exception = new IOException(win32Exception.Message, win32Exception);
-                }
-
-                isDirectory = false;
-                return false;
-            }
-
-            isDirectory = (result & ((int)NativeMethods.FileAttributes.Directory)) ==
-                ((int)NativeMethods.FileAttributes.Directory);
-
-            return true;
-#endif
-        }
-
-        // This is done through P/Invoke since we pay 13% performance degradation
-        // through the CAS checks required by File.Exists and Directory.Exists
-        internal static bool NativeFileExists(string path)
-        {
-            bool isDirectory;
-            Exception ioException;
-
-            bool itemExists = NativeItemExists(path, out isDirectory, out ioException);
-            if (ioException != null)
-            {
-                throw ioException;
-            }
-
-            return (itemExists && (!isDirectory));
-        }
-
-        // This is done through P/Invoke since we pay 13% performance degradation
-        // through the CAS checks required by File.Exists and Directory.Exists
-        internal static bool NativeDirectoryExists(string path)
-        {
-            bool isDirectory;
-            Exception ioException;
-
-            bool itemExists = NativeItemExists(path, out isDirectory, out ioException);
-            if (ioException != null)
-            {
-                throw ioException;
-            }
-
-            return (itemExists && isDirectory);
         }
 
         internal static void NativeEnumerateDirectory(string directory, out List<string> directories, out List<string> files)
@@ -1443,43 +1337,26 @@ namespace System.Management.Automation
             internal static readonly char[] PathSearchTrimEnd = { (char)0x9, (char)0xA, (char)0xB, (char)0xC, (char)0xD, (char)0x20, (char)0x85, (char)0xA0 };
         }
 
-#if !UNIX
-        // This is to reduce the runtime overhead of the feature query
-        private static readonly Type ComObjectType = typeof(object).Assembly.GetType("System.__ComObject");
-#endif
-
-        internal static bool IsComObject(PSObject psObject)
-        {
-#if UNIX
-            return false;
-#else
-            if (psObject == null) { return false; }
-
-            object obj = PSObject.Base(psObject);
-            return IsComObject(obj);
-#endif
-        }
-
+        /// <summary>
+        /// A COM object could be directly of the type 'System.__ComObject', or it could be a strongly typed RWC,
+        /// whose specific type derives from 'System.__ComObject'.
+        /// A strongly typed RWC can be created via the 'new' operation with a Primary Interop Assembly (PIA).
+        /// For example, with the PIA 'Microsoft.Office.Interop.Excel', you can write the following code:
+        ///    var excelApp = new Microsoft.Office.Interop.Excel.Application();
+        ///    Type type = excelApp.GetType();
+        ///    Type comObjectType = typeof(object).Assembly.GetType("System.__ComObject");
+        ///    Console.WriteLine("excelApp type: {0}", type.FullName);
+        ///    Console.WriteLine("Is __ComObject assignable from? {0}", comObjectType.IsAssignableFrom(type));
+        /// and the results are:
+        ///    excelApp type: Microsoft.Office.Interop.Excel.ApplicationClass
+        ///    Is __ComObject assignable from? True
+        /// </summary>
         internal static bool IsComObject(object obj)
         {
 #if UNIX
             return false;
 #else
-            // We can't use System.Runtime.InteropServices.Marshal.IsComObject(obj) since it doesn't work in partial trust.
-            //
-            // There could be strongly typed RWCs whose type is not 'System.__ComObject', but the more specific type should
-            // derive from 'System.__ComObject'. The strongly typed RWCs can be created with 'new' operation via the Primay
-            // Interop Assembly (PIA).
-            // For example, with the PIA 'Microsoft.Office.Interop.Excel', you can write the following code:
-            //    var excelApp = new Microsoft.Office.Interop.Excel.Application();
-            //    Type type = excelApp.GetType();
-            //    Type comObjectType = typeof(object).Assembly.GetType("System.__ComObject");
-            //    Console.WriteLine("excelApp type: {0}", type.FullName);
-            //    Console.WriteLine("Is __ComObject assignable from? {0}", comObjectType.IsAssignableFrom(type));
-            // and the results are:
-            //    excelApp type: Microsoft.Office.Interop.Excel.ApplicationClass
-            //    Is __ComObject assignable from? True
-            return obj != null && ComObjectType.IsAssignableFrom(obj.GetType());
+            return obj != null && Marshal.IsComObject(obj);
 #endif
         }
     }
@@ -1496,6 +1373,7 @@ namespace System.Management.Automation.Internal
         internal static bool UseDebugAmsiImplementation;
         internal static bool BypassAppLockerPolicyCaching;
         internal static bool BypassOnlineHelpRetrieval;
+        internal static bool ForcePromptForChoiceDefaultOption;
 
         // Stop/Restart/Rename Computer tests
         internal static bool TestStopComputer;
@@ -1509,6 +1387,13 @@ namespace System.Management.Automation.Internal
         // Simulate 'System.Diagnostics.Stopwatch.IsHighResolution is false' to test Get-Uptime throw
         internal static bool StopwatchIsNotHighResolution;
         internal static bool DisableGACLoading;
+        internal static bool SetConsoleWidthToZero;
+
+        // A location to test PSEdition compatibility functionality for Windows PowerShell modules with
+        // since we can't manipulate the System32 directory in a test
+        internal static string TestWindowsPowerShellPSHomeLocation;
+
+        internal static bool ShowMarkdownOutputBypass;
 
         /// <summary>This member is used for internal test purposes.</summary>
         public static void SetTestHook(string property, object value)
@@ -1518,6 +1403,55 @@ namespace System.Management.Automation.Internal
             {
                 fieldInfo.SetValue(null, value);
             }
+        }
+    }
+
+    /// <summary>
+    /// An bounded stack based on a linked list.
+    /// </summary>
+    internal class BoundedStack<T> : LinkedList<T>
+    {
+        private readonly int _capacity;
+
+        /// <summary>
+        /// Lazy initialisation, i.e. it sets only its limit but does not allocate the memory for the given capacity.
+        /// </summary>
+        /// <param name="capacity"></param>
+        internal BoundedStack(int capacity)
+        {
+            _capacity = capacity;
+        }
+
+        /// <summary>
+        /// Push item.
+        /// </summary>
+        /// <param name="item"></param>
+        internal void Push(T item)
+        {
+            this.AddFirst(item);
+
+            if(this.Count > _capacity)
+            {
+                this.RemoveLast();
+            }
+        }
+
+        /// <summary>
+        /// Pop item.
+        /// </summary>
+        /// <returns></returns>
+        internal T Pop()
+        {
+            var item = this.First.Value;
+            try
+            {
+                this.RemoveFirst();
+            }
+            catch (InvalidOperationException)
+            {
+                throw new InvalidOperationException(SessionStateStrings.BoundedStackIsEmpty);
+            }
+            return item;
         }
     }
 }

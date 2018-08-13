@@ -122,7 +122,6 @@ namespace Microsoft.PowerShell.Commands
         /// Initializes a new instance of the SignatureCommandsBase class,
         /// using the given command name.
         /// </summary>
-        ///
         /// <param name="name">
         /// The name of the command.
         /// </param>
@@ -338,7 +337,6 @@ namespace Microsoft.PowerShell.Commands
         ///
         /// Defaults to 'notroot'.
         /// </summary>
-        ///
         [Parameter(Mandatory = false)]
         [ValidateSet("signer", "notroot", "all")]
         public string IncludeChain
@@ -377,7 +375,7 @@ namespace Microsoft.PowerShell.Commands
                 _timestampServer = value;
             }
         }
-        private string _timestampServer = "";
+        private string _timestampServer = string.Empty;
 
         /// <summary>
         /// Gets or sets the hash algorithm used for signing.
@@ -562,7 +560,7 @@ namespace Microsoft.PowerShell.Commands
             finally
             {
                 // reset the read-only attribute
-                if (null != readOnlyFileInfo)
+                if (readOnlyFileInfo != null)
                 {
                     readOnlyFileInfo.Attributes |= FileAttributes.ReadOnly;
                 }
@@ -603,11 +601,8 @@ namespace Microsoft.PowerShell.Commands
         /// <summary>
         /// get SigningOption value corresponding to a string name
         /// </summary>
-        ///
         /// <param name="optionName"> name of option </param>
-        ///
         /// <returns> SigningOption </returns>
-        ///
         private static SigningOption GetSigningOption(string optionName)
         {
             foreach (SigningOptionInfo si in s_sigOptionInfo)

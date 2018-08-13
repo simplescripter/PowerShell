@@ -19,13 +19,12 @@ using System.IO;
 using System.Text;
 using System.Management.Automation.Internal;
 using System.Management.Automation.Runspaces;
-using System.Diagnostics.CodeAnalysis; // for fxcop
+using System.Diagnostics.CodeAnalysis;
 using Dbg = System.Management.Automation.Diagnostics;
 using MethodCacheEntry = System.Management.Automation.DotNetAdapter.MethodCacheEntry;
-
-#if !CORECLR
-// System.DirectoryServices are not in CoreCLR
+#if !UNIX
 using System.DirectoryServices;
+using System.Management;
 #endif
 
 #pragma warning disable 1634, 1691 // Stops compiler from warning about unknown warnings
@@ -697,6 +696,30 @@ namespace System.Management.Automation
         }
 
         /// <summary>
+        /// Helper method for [Try]Compare to determine object ordering with null.
+        /// </summary>
+        /// <param name="value">the numeric value to compare to null</param>
+        /// <param name="numberIsRightHandSide">True if the number to compare is on the right hand side if the comparison.</param>
+        private static int CompareObjectToNull(object value, bool numberIsRightHandSide)
+        {
+            var i = numberIsRightHandSide ? -1 : 1;
+
+            // If it's a positive number, including 0, it's greater than null
+            // for everything else it's less than zero...
+            switch (value)
+            {
+                case Int16 i16: return Math.Sign(i16) < 0 ? -i : i;
+                case Int32 i32: return Math.Sign(i32) < 0 ? -i : i;
+                case Int64 i64: return Math.Sign(i64) < 0 ? -i : i;
+                case sbyte sby: return Math.Sign(sby) < 0 ? -i : i;
+                case float f: return Math.Sign(f) < 0 ? -i : i;
+                case double d: return Math.Sign(d) < 0 ? -i : i;
+                case decimal de: return Math.Sign(de) < 0 ? -i : i;
+                default: return i;
+            }
+        }
+
+        /// <summary>
         /// Compare first and second, converting second to the
         /// type of the first, if necessary.
         /// </summary>
@@ -763,48 +786,15 @@ namespace System.Management.Automation
 
             if (first == null)
             {
-                if (second == null)
-                {
-                    return 0;
-                }
-                else
-                {
-                    // If it's a positive number, including 0, it's greater than null
-                    // for everything else it's less than zero...
-                    switch (LanguagePrimitives.GetTypeCode(second.GetType()))
-                    {
-                        case TypeCode.Int16: return System.Math.Sign((Int16)second) < 0 ? 1 : -1;
-                        case TypeCode.Int32: return System.Math.Sign((Int32)second) < 0 ? 1 : -1;
-                        case TypeCode.Int64: return System.Math.Sign((Int64)second) < 0 ? 1 : -1;
-                        case TypeCode.SByte: return System.Math.Sign((sbyte)second) < 0 ? 1 : -1;
-                        case TypeCode.Single: return System.Math.Sign((System.Single)second) < 0 ? 1 : -1;
-                        case TypeCode.Double: return System.Math.Sign((System.Double)second) < 0 ? 1 : -1;
-                        case TypeCode.Decimal: return System.Math.Sign((System.Decimal)second) < 0 ? 1 : -1;
-                        default: return -1;
-                    }
-                }
+                return second == null ? 0 : CompareObjectToNull(second, true);
             }
 
             if (second == null)
             {
-                // If it's a positive number, including 0, it's greater than null
-                // for everything else it's less than zero...
-                switch (LanguagePrimitives.GetTypeCode(first.GetType()))
-                {
-                    case TypeCode.Int16: return System.Math.Sign((Int16)first) < 0 ? -1 : 1;
-                    case TypeCode.Int32: return System.Math.Sign((Int32)first) < 0 ? -1 : 1;
-                    case TypeCode.Int64: return System.Math.Sign((Int64)first) < 0 ? -1 : 1;
-                    case TypeCode.SByte: return System.Math.Sign((sbyte)first) < 0 ? -1 : 1;
-                    case TypeCode.Single: return System.Math.Sign((System.Single)first) < 0 ? -1 : 1;
-                    case TypeCode.Double: return System.Math.Sign((System.Double)first) < 0 ? -1 : 1;
-                    case TypeCode.Decimal: return System.Math.Sign((System.Decimal)first) < 0 ? -1 : 1;
-                    default: return 1;
-                }
+                return CompareObjectToNull(first, false);
             }
 
-            string firstString = first as string;
-
-            if (firstString != null)
+            if (first is string firstString)
             {
                 string secondString = second as string;
                 if (secondString == null)
@@ -842,9 +832,7 @@ namespace System.Management.Automation
                                                          first.ToString(), second.ToString(), e.Message);
             }
 
-            IComparable firstComparable = first as IComparable;
-
-            if (firstComparable != null)
+            if (first is IComparable firstComparable)
             {
                 return firstComparable.CompareTo(secondConverted);
             }
@@ -857,6 +845,127 @@ namespace System.Management.Automation
             // At this point, we know that they aren't equal but we have no way of
             // knowing which should compare greater than the other so we throw an exception.
             throw PSTraceSource.NewArgumentException("first", ExtendedTypeSystem.NotIcomparable, first.ToString());
+        }
+
+        /// <summary>
+        /// Tries to compare first and second, converting second to the type of the first, if necessary.
+        /// If a conversion is needed but fails, false is return.
+        /// </summary>
+        /// <param name="first">First comparison value.</param>
+        /// <param name="second">Second comparison value.</param>
+        /// <param name="result">Less than zero if first is smaller than second, more than
+        /// zero if it is greater or zero if they are the same.</param>
+        /// <returns>True if the comparison was successful, false otherwise.</returns>
+        public static bool TryCompare(object first, object second, out int result)
+        {
+            return TryCompare(first, second, ignoreCase: false, CultureInfo.InvariantCulture, out result);
+        }
+
+        /// <summary>
+        /// Tries to compare first and second, converting second to the type of the first, if necessary.
+        /// If a conversion is needed but fails, false is return.
+        /// </summary>
+        /// <param name="first">First comparison value.</param>
+        /// <param name="second">Second comparison value.</param>
+        /// <param name="ignoreCase">Used if both values are strings.</param>
+        /// <param name="result">Less than zero if first is smaller than second, more than zero if it is greater or zero if they are the same.</param>
+        /// <returns>True if the comparison was successful, false otherwise.</returns>
+        public static bool TryCompare(object first, object second, bool ignoreCase, out int result)
+        {
+            return TryCompare(first, second, ignoreCase, CultureInfo.InvariantCulture, out result);
+        }
+
+        /// <summary>
+        /// Tries to compare first and second, converting second to the type of the first, if necessary.
+        /// If a conversion is needed but fails, false is return.
+        /// </summary>
+        /// <param name="first">First comparison value.</param>
+        /// <param name="second">Second comparison value.</param>
+        /// <param name="ignoreCase">Used if both values are strings.</param>
+        /// <param name="formatProvider">Used in type conversions and if both values are strings.</param>
+        /// <param name="result">Less than zero if first is smaller than second, more than  zero if it is greater or zero if they are the same.</param>
+        /// <returns>True if the comparison was successful, false otherwise.</returns>
+        /// <exception cref="ArgumentException">The parameter <paramref name="formatProvider"/> is not a <see cref="CultureInfo"/>.</exception>
+        public static bool TryCompare(object first, object second, bool ignoreCase, IFormatProvider formatProvider, out int result)
+        {
+            result = 0;
+            if (formatProvider == null)
+            {
+                formatProvider = CultureInfo.InvariantCulture;
+            }
+
+            if (!(formatProvider is CultureInfo culture))
+            {
+                throw PSTraceSource.NewArgumentException("formatProvider");
+            }
+
+            first = PSObject.Base(first);
+            second = PSObject.Base(second);
+
+            if (first == null && second == null)
+            {
+                result = 0;
+                return true;
+            }
+
+            if (first == null)
+            {
+                result = CompareObjectToNull(second, true);
+                return true;
+            }
+
+            if (second == null)
+            {
+                // If it's a positive number, including 0, it's greater than null
+                // for everything else it's less than zero...
+                result = CompareObjectToNull(first, false);
+                return true;
+            }
+
+            if (first is string firstString)
+            {
+                if (!(second is string secondString))
+                {
+                    if (!TryConvertTo(second, culture, out secondString))
+                    {
+                        return false;
+                    }
+                }
+
+                result = culture.CompareInfo.Compare(firstString, secondString, ignoreCase ? CompareOptions.IgnoreCase : CompareOptions.None);
+                return true;
+            }
+
+            Type firstType = first.GetType();
+            Type secondType = second.GetType();
+            int firstIndex = TypeTableIndex(firstType);
+            int secondIndex = TypeTableIndex(secondType);
+            if (firstIndex != -1 && secondIndex != -1)
+            {
+                result = NumericCompare(first, second, firstIndex, secondIndex);
+                return true;
+            }
+
+            if (!TryConvertTo(second, firstType, culture, out object secondConverted))
+            {
+                return false;
+            }
+
+            if (first is IComparable firstComparable)
+            {
+                result = firstComparable.CompareTo(secondConverted);
+                return true;
+            }
+
+            if (first.Equals(second))
+            {
+                result = 0;
+                return true;
+            }
+
+            // At this point, we know that they aren't equal but we have no way of
+            // knowing which should compare greater than the other so we return false.
+            return false;
         }
 
         /// <summary>
@@ -1647,9 +1756,9 @@ namespace System.Management.Automation
         /// <returns></returns>
         public static T ConvertTo<T>(object valueToConvert)
         {
-            if (valueToConvert is T)
+            if (valueToConvert is T value)
             {
-                return (T)valueToConvert;
+                return value;
             }
             return (T)ConvertTo(valueToConvert, typeof(T), true, CultureInfo.InvariantCulture, null);
         }
@@ -1665,9 +1774,9 @@ namespace System.Management.Automation
         /// <returns>false for conversion failure, true for success</returns>
         public static bool TryConvertTo<T>(object valueToConvert, out T result)
         {
-            if (valueToConvert is T)
+            if (valueToConvert is T value)
             {
-                result = (T)valueToConvert;
+                result = value;
                 return true;
             }
             return TryConvertTo(valueToConvert, CultureInfo.InvariantCulture, out result);
@@ -1686,19 +1795,14 @@ namespace System.Management.Automation
         public static bool TryConvertTo<T>(object valueToConvert, IFormatProvider formatProvider, out T result)
         {
             result = default(T);
-            try
+
+            if (TryConvertTo(valueToConvert, typeof(T), formatProvider, out object res))
             {
-                result = (T)ConvertTo(valueToConvert, typeof(T), formatProvider);
+                result = (T)res;
+                return true;
             }
-            catch (InvalidCastException)
-            {
-                return false;
-            }
-            catch (ArgumentException)
-            {
-                return false;
-            }
-            return true;
+
+            return false;
         }
 
         /// <summary>
@@ -1723,27 +1827,44 @@ namespace System.Management.Automation
         /// <remarks>
         /// This method is a variant of ConvertTo that does not throw exceptions if the conversion fails.
         /// </remarks>
-        /// <param name="valueToConvert">value to be converted and returned</param>
-        /// <param name="resultType">type to convert valueToConvert</param>
-        /// <param name="formatProvider">governing conversion of types</param>
+        /// <param name="valueToConvert">value to be converted and returned.</param>
+        /// <param name="resultType">type to convert valueToConvert.</param>
+        /// <param name="formatProvider">governing conversion of types.</param>
         /// <param name="result">result of the conversion. This is valid only if the return is true.</param>
-        /// <returns>false for conversion failure, true for success</returns>
+        /// <returns>false for conversion failure, true for success.</returns>
         public static bool TryConvertTo(object valueToConvert, Type resultType, IFormatProvider formatProvider, out object result)
         {
             result = null;
             try
             {
-                result = ConvertTo(valueToConvert, resultType, formatProvider);
+                using (typeConversion.TraceScope("Converting \"{0}\" to \"{1}\".", valueToConvert, resultType))
+                {
+                    if (resultType == null)
+                    {
+                        return false;
+                    }
+
+                    var conversion = FigureConversion(valueToConvert, resultType, out bool debase);
+                    if (conversion.Rank == ConversionRank.None)
+                    {
+                        return false;
+                    }
+
+                    result = conversion.Invoke(
+                        debase ? PSObject.Base(valueToConvert) : valueToConvert,
+                        resultType,
+                        recurse: true,
+                        debase ? (PSObject)valueToConvert : null,
+                        formatProvider,
+                        backupTable: null);
+
+                    return true;
+                }
             }
             catch (InvalidCastException)
             {
                 return false;
             }
-            catch (ArgumentException)
-            {
-                return false;
-            }
-            return true;
         }
 
         #endregion public type conversion
@@ -2147,15 +2268,7 @@ namespace System.Management.Automation
             }
         }
 
-#if !CORECLR
-        // No Following Types In CoreCLR
-        //    ManagementObject
-        //    ManagementObjectSearcher
-        //    ManagementClass
-        //    CommaDelimitedStringCollection
-        //    DirectoryEntry
-        #region Converters_Not_Available_In_CorePS
-
+#if !UNIX
         private static ManagementObject ConvertToWMI(object valueToConvert,
                                                      Type resultType,
                                                      bool recursion,
@@ -2279,6 +2392,7 @@ namespace System.Management.Automation
                     valueToConvert.ToString(), resultType.ToString(), wmiClassException.Message);
             }
         }
+#endif
 
         // System.Configuration.CommaDelimitedStringCollection is derived from the StringCollection class
         private static System.Configuration.CommaDelimitedStringCollection ConvertToCommaDelimitedStringCollection(object valueToConvert,
@@ -2294,6 +2408,7 @@ namespace System.Management.Automation
             return commaDelimitedStringCollection;
         }
 
+#if !UNIX
         private static DirectoryEntry ConvertToADSI(object valueToConvert,
                                                     Type resultType,
                                                     bool recursion,
@@ -2351,8 +2466,6 @@ namespace System.Management.Automation
                     valueToConvert.ToString(), resultType.ToString(), e.Message);
             }
         }
-
-        #endregion Converters_Not_Available_In_CorePS
 #endif
 
         private static StringCollection ConvertToStringCollection(object valueToConvert,
@@ -3202,49 +3315,6 @@ namespace System.Management.Automation
                 valueToConvert.ToString(), resultType.ToString(), exception.Message);
         }
 
-        private static Delegate ConvertPSMethodInfoToDelegate(object valueToConvert,
-                                                      Type resultType,
-                                                      bool recurse,
-                                                      PSObject originalValueToConvert,
-                                                      IFormatProvider formatProvider,
-                                                      TypeTable backupTable)
-        {
-            // We can only possibly convert PSMethod instance of the type PSMethod<T>.
-            // Such a PSMethod essentially represents a set of .NET method overloads.
-            var psMethod = (PSMethod)valueToConvert;
-
-            try
-            {
-                var methods = (MethodCacheEntry)psMethod.adapterData;
-                var isStatic = psMethod.instance is Type;
-                var targetMethodInfo = resultType.GetMethod("Invoke");
-                var comparator = new DelegateArgsComparator(targetMethodInfo);
-
-                foreach (var methodInformation in methods.methodInformationStructures)
-                {
-                    var candidate = (MethodInfo)methodInformation.method;
-                    if (comparator.SignatureMatches(candidate.ReturnType, candidate.GetParameters()))
-                    {
-                        return isStatic ? candidate.CreateDelegate(resultType)
-                                        : candidate.CreateDelegate(resultType, psMethod.instance);
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                typeConversion.WriteLine("PSMethod to Delegate exception: \"{0}\".", e.Message);
-                throw new PSInvalidCastException("InvalidCastExceptionPSMethodToDelegate", e,
-                    ExtendedTypeSystem.InvalidCastExceptionWithInnerException,
-                    valueToConvert.ToString(), resultType.ToString(), e.Message);
-            }
-
-            var msg = String.Format(ExtendedTypeSystem.PSMethodToDelegateNoMatchingOverLoad, psMethod, resultType);
-            typeConversion.WriteLine($"PSMethod to Delegate exception: \"{msg}\".");
-            throw new PSInvalidCastException("InvalidCastExceptionPSMethodToDelegate", null,
-                ExtendedTypeSystem.InvalidCastExceptionWithInnerException,
-                valueToConvert.ToString(), resultType.ToString(), msg);
-        }
-
         private static object ConvertToNullable(object valueToConvert,
                                                 Type resultType,
                                                 bool recursion,
@@ -3484,6 +3554,65 @@ namespace System.Management.Automation
             }
 
             return ConvertStringToEnum(sbResult.ToString(), resultType, recursion, originalValueToConvert, formatProvider, backupTable);
+        }
+
+        private class PSMethodToDelegateConverter
+        {
+            // Index of the matching overload method.
+            private readonly int _matchIndex;
+            // Size of the cache. It's rare to have more than 10 overloads for a method.
+            private const int CacheSize = 10;
+            private static readonly PSMethodToDelegateConverter[] s_converterCache = new PSMethodToDelegateConverter[CacheSize];
+
+            private PSMethodToDelegateConverter(int matchIndex)
+            {
+                _matchIndex = matchIndex;
+            }
+
+            internal static PSMethodToDelegateConverter GetConverter(int matchIndex)
+            {
+                if (matchIndex >= CacheSize) { return new PSMethodToDelegateConverter(matchIndex); }
+
+                var result = s_converterCache[matchIndex];
+                if (result == null)
+                {
+                    // If the cache entry is null, generate a new instance for the cache slot.
+                    var converter = new PSMethodToDelegateConverter(matchIndex);
+                    Threading.Interlocked.CompareExchange(ref s_converterCache[matchIndex], converter, null);
+                    result = s_converterCache[matchIndex];
+                }
+
+                return result;
+            }
+
+            internal Delegate Convert(object valueToConvert,
+                                      Type resultType,
+                                      bool recursion,
+                                      PSObject originalValueToConvert,
+                                      IFormatProvider formatProvider,
+                                      TypeTable backupTable)
+            {
+                // We can only possibly convert PSMethod instance of the type PSMethod<T>.
+                // Such a PSMethod essentially represents a set of .NET method overloads.
+                var psMethod = (PSMethod)valueToConvert;
+
+                try
+                {
+                    var methods = (MethodCacheEntry)psMethod.adapterData;
+                    var isStatic = psMethod.instance is Type;
+
+                    var candidate = (MethodInfo)methods.methodInformationStructures[_matchIndex].method;
+                    return isStatic ? candidate.CreateDelegate(resultType)
+                                    : candidate.CreateDelegate(resultType, psMethod.instance);
+                }
+                catch (Exception e)
+                {
+                    typeConversion.WriteLine("PSMethod to Delegate exception: \"{0}\".", e.Message);
+                    throw new PSInvalidCastException("InvalidCastExceptionPSMethodToDelegate", e,
+                        ExtendedTypeSystem.InvalidCastExceptionWithInnerException,
+                        valueToConvert.ToString(), resultType.ToString(), e.Message);
+                }
+            }
         }
 
         private class ConvertViaParseMethod
@@ -4286,7 +4415,8 @@ namespace System.Management.Automation
                 CacheConversion<bool>(typeofString, typeofBool, LanguagePrimitives.ConvertStringToBool, ConversionRank.Language);
                 CacheConversion<bool>(typeof(SwitchParameter), typeofBool, LanguagePrimitives.ConvertSwitchParameterToBool, ConversionRank.Language);
 
-#if !CORECLR    // No DirectoryService && WMIv1 In CoreCLR
+#if !UNIX
+                // Conversions to WMI and ADSI
                 CacheConversion<ManagementObjectSearcher>(typeofString, typeof(ManagementObjectSearcher), LanguagePrimitives.ConvertToWMISearcher, ConversionRank.Language);
                 CacheConversion<ManagementClass>(typeofString, typeof(ManagementClass), LanguagePrimitives.ConvertToWMIClass, ConversionRank.Language);
                 CacheConversion<ManagementObject>(typeofString, typeof(ManagementObject), LanguagePrimitives.ConvertToWMI, ConversionRank.Language);
@@ -4528,7 +4658,6 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="valueToConvert">the same as in the public version</param>
         /// <param name="resultType">the same as in the public version</param>
@@ -4772,66 +4901,148 @@ namespace System.Management.Automation
                 return CacheConversion<object>(fromType, toType, LanguagePrimitives.ConvertIntegerToEnum, ConversionRank.Language);
             }
 
-            if (fromType.IsSubclassOf(typeof(PSMethod)) && toType.IsSubclassOf(typeof(Delegate)))
+            if (fromType.IsSubclassOf(typeof(PSMethod)) && toType.IsSubclassOf(typeof(Delegate)) && !toType.IsAbstract)
             {
-                var mi = toType.GetMethod("Invoke");
-
-                var comparator = new DelegateArgsComparator(mi);
+                var targetMethod = toType.GetMethod("Invoke");
+                var comparator = new SignatureComparator(targetMethod);
                 var signatureEnumerator = new PSMethodSignatureEnumerator(fromType);
+                int index = -1, matchedIndex = -1;
+
                 while (signatureEnumerator.MoveNext())
                 {
-                    var candidate = signatureEnumerator.Current.GetMethod("Invoke");
-                    if (comparator.SignatureMatches(candidate.ReturnType, candidate.GetParameters()))
+                    index++;
+                    var signatureType = signatureEnumerator.Current;
+                    // Skip the non-bindable signatures
+                    if (signatureType == typeof(Func<PSNonBindableType>)) { continue; }
+
+                    Type[] argumentTypes = signatureType.GenericTypeArguments;
+                    if (comparator.ProjectedSignatureMatchesTarget(argumentTypes, out bool signaturesMatchExactly))
                     {
-                        return CacheConversion<Delegate>(fromType, toType, LanguagePrimitives.ConvertPSMethodInfoToDelegate, ConversionRank.Language);
+                        if (signaturesMatchExactly)
+                        {
+                            // We prefer the signature that exactly matches the target delegate.
+                            matchedIndex = index;
+                            break;
+                        }
+
+                        // If there is no exact match, then we use the first compatible signature we found.
+                        if (matchedIndex == -1) { matchedIndex = index; }
                     }
+                }
+
+                if (matchedIndex > -1)
+                {
+                    // We got the index of the matching method signature based on the PSMethod<..> type.
+                    // Signatures in PSMethod<..> type were constructed based on the array of method overloads,
+                    // in the exact order. So we can use this index directly to locate the matching overload in
+                    // the converter, without having to compare the signature again.
+                    var converter = PSMethodToDelegateConverter.GetConverter(matchedIndex);
+                    return CacheConversion<Delegate>(fromType, toType, converter.Convert, ConversionRank.Language);
                 }
             }
 
             return null;
         }
 
-        struct DelegateArgsComparator
+        private struct SignatureComparator
         {
-            private readonly ParameterInfo[] _targetParametersInfos;
-            private readonly Type _returnType;
-
-            public DelegateArgsComparator(MethodInfo targetMethodInfo)
+            enum TypeMatchingContext
             {
-                _returnType = targetMethodInfo.ReturnType;
-                _targetParametersInfos = targetMethodInfo.GetParameters();
+                ReturnType,
+                ParameterType,
+                OutParameterType
             }
 
-            public bool SignatureMatches(Type returnType, ParameterInfo[] arguments)
+            private readonly ParameterInfo[] targetParameters;
+            private readonly Type targetReturnType;
+
+            internal SignatureComparator(MethodInfo targetMethodInfo)
             {
-                return ReturnTypeMatches(returnType) && ParameterTypesMatches(arguments);
+                targetReturnType = targetMethodInfo.ReturnType;
+                targetParameters = targetMethodInfo.GetParameters();
             }
 
-            private bool ReturnTypeMatches(Type returnType)
+            /// <summary>
+            /// Check if a projected signature matches the target method.
+            /// </summary>
+            /// <param name="argumentTypes">
+            /// The type arguments from the metadata type 'Func[..]' that represents the projected signature.
+            /// It contains the return type as the last item in the array.
+            /// </param>
+            /// <param name="signaturesMatchExactly">
+            /// Set by this method to indicate if it's an exact match.
+            /// </param>
+            internal bool ProjectedSignatureMatchesTarget(Type[] argumentTypes, out bool signaturesMatchExactly)
             {
-                return PSMethod.MatchesPSMethodProjectedType(_returnType, returnType, testAssignment: true);
+                signaturesMatchExactly = false;
+                int length = argumentTypes.Length;
+                if (length != targetParameters.Length + 1) { return false; }
+
+                bool typesMatchExactly, allTypesMatchExactly;
+                Type sourceReturnType = argumentTypes[length - 1];
+
+                if (ProjectedTypeMatchesTargetType(sourceReturnType, targetReturnType, TypeMatchingContext.ReturnType, out typesMatchExactly))
+                {
+                    allTypesMatchExactly = typesMatchExactly;
+                    for (int i = 0; i < targetParameters.Length; i++)
+                    {
+                        var targetParam = targetParameters[i];
+                        var sourceType = argumentTypes[i];
+                        var matchContext = targetParam.IsOut ? TypeMatchingContext.OutParameterType : TypeMatchingContext.ParameterType;
+
+                        if (!ProjectedTypeMatchesTargetType(sourceType, targetParam.ParameterType, matchContext, out typesMatchExactly))
+                        {
+                            return false;
+                        }
+                        allTypesMatchExactly &= typesMatchExactly;
+                    }
+
+                    signaturesMatchExactly = allTypesMatchExactly;
+                    return true;
+                }
+
+                return false;
             }
 
-            private bool ParameterTypesMatches(ParameterInfo[] arguments)
+            private static bool ProjectedTypeMatchesTargetType(Type sourceType, Type targetType, TypeMatchingContext matchContext, out bool matchExactly)
             {
-                var argsCount = _targetParametersInfos.Length;
-                // void is encoded as typeof(VOID) in the PSMethod<MethodGroup<>> as the last parameter
-                if (arguments.Length != argsCount)
+                matchExactly = false;
+                if (targetType.IsByRef || targetType.IsPointer)
+                {
+                    if (!sourceType.IsGenericType) { return false; }
+
+                    var sourceTypeDef = sourceType.GetGenericTypeDefinition();
+                    bool isOutParameter = matchContext == TypeMatchingContext.OutParameterType;
+
+                    if (targetType.IsByRef && sourceTypeDef == (isOutParameter ? typeof(PSOutParameter<>) : typeof(PSReference<>)) ||
+                        targetType.IsPointer && sourceTypeDef == typeof(PSPointer<>))
+                    {
+                        // For ref/out parameter types and pointer types, the element types need to match exactly.
+                        if (targetType.GetElementType() == sourceType.GenericTypeArguments[0])
+                        {
+                            matchExactly = true;
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+
+                if (targetType == sourceType ||
+                    targetType == typeof(void) && sourceType == typeof(VOID) ||
+                    targetType == typeof(TypedReference) && sourceType == typeof(PSTypedReference))
+                {
+                    matchExactly = true;
+                    return true;
+                }
+
+                if (targetType == typeof(void) || targetType == typeof(TypedReference))
                 {
                     return false;
                 }
-                for (int i = 0; i < arguments.Length; i++)
-                {
-                    var arg = arguments[i];
-                    var argType = arg.ParameterType;
-                    var targetParamType = _targetParametersInfos[i].ParameterType;
-                    var isOut = (arg.Attributes | ParameterAttributes.Out) == ParameterAttributes.Out;
-                    if (!PSMethod.MatchesPSMethodProjectedType(targetParamType, argType, isOut: isOut))
-                    {
-                        return false;
-                    }
-                }
-                return true;
+
+                return matchContext == TypeMatchingContext.ReturnType
+                    ? targetType.IsAssignableFrom(sourceType)
+                    : sourceType.IsAssignableFrom(targetType);
             }
         }
 
