@@ -268,7 +268,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="data">
         /// data to process
@@ -287,7 +286,7 @@ namespace System.Management.Automation.Remoting
             string stream,
             ReceiveDataCollection.OnDataAvailableCallback dataAvailableCallback)
         {
-            Dbg.Assert(null != data, "Cannot process null data");
+            Dbg.Assert(data != null, "Cannot process null data");
 
             s_baseTracer.WriteLine("Processing incoming data for stream {0}.", stream);
 
@@ -320,7 +319,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="remoteObject"></param>
         /// <exception cref="Exception">
@@ -700,7 +698,7 @@ namespace System.Management.Automation.Remoting.Client
 
             lock (_callbackNotificationQueue)
             {
-                if ((null != remoteObject) || (null != transportErrorArgs) || (null != privateData))
+                if ((remoteObject != null) || (transportErrorArgs != null) || (privateData != null))
                 {
                     CallbackNotificationInformation rcvdDataInfo = new CallbackNotificationInformation();
                     rcvdDataInfo.remoteObject = remoteObject;
@@ -829,15 +827,15 @@ namespace System.Management.Automation.Remoting.Client
                         rcvdDataInfo = _callbackNotificationQueue.Dequeue();
                     }
                     // Handle callback.
-                    if (null != rcvdDataInfo)
+                    if (rcvdDataInfo != null)
                     {
                         // Handling transport exception in thread-pool thread
-                        if (null != rcvdDataInfo.transportError)
+                        if (rcvdDataInfo.transportError != null)
                         {
                             RaiseErrorHandler(rcvdDataInfo.transportError);
                             break;
                         }
-                        else if (null != rcvdDataInfo.privateData)
+                        else if (rcvdDataInfo.privateData != null)
                         {
                             ProcessPrivateData(rcvdDataInfo.privateData);
                         }
@@ -1344,7 +1342,7 @@ namespace System.Management.Automation.Remoting.Server
 
         private void OnDataAvailable(byte[] dataToSend, bool isEndFragment)
         {
-            Dbg.Assert(null != dataToSend, "ServerTransportManager cannot send null fragment");
+            Dbg.Assert(dataToSend != null, "ServerTransportManager cannot send null fragment");
             // log to crimson log.
             PSEtwLog.LogAnalyticInformational(PSEventId.ServerSendData, PSOpcode.Send, PSTask.None,
                 PSKeyword.Transport | PSKeyword.UseAlwaysAnalytic,
@@ -1423,7 +1421,6 @@ namespace System.Management.Automation.Remoting.Server
         #region Abstract interfaces
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="data"></param>
         /// <param name="flush">
@@ -1438,12 +1435,10 @@ namespace System.Management.Automation.Remoting.Server
         protected abstract void SendDataToClient(byte[] data, bool flush, bool reportAsPending, bool reportAsDataBoundary);
 
         /// <summary>
-        ///
         /// </summary>
         internal abstract void ReportExecutionStatusAsRunning();
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="reasonForClose">
         /// message describing why the transport manager must be closed
@@ -1516,7 +1511,7 @@ namespace System.Management.Automation.Remoting.Server
         /// <returns>The extracted tag converted from a base-64 string.</returns>
         internal static System.Byte[] ExtractEncodedXmlElement(String xmlBuffer, String xmlTag)
         {
-            if (null == xmlBuffer || null == xmlTag)
+            if (xmlBuffer == null || xmlTag == null)
                 return new System.Byte[1];
 
             // the inboundShellInformation is in Xml format as per the SOAP WSMan spec.

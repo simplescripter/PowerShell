@@ -54,13 +54,10 @@ src/System.Management.Automation/help              @Francisco-Gamino @adityapatw
 # @daxian-dbw @charub
 
 # Area: Language
-src/System.Management.Automation/engine/parser     @daxian-dbw @vors @BrucePay
+src/System.Management.Automation/engine/parser     @daxian-dbw @BrucePay
 
 # Area: Providers
 src/System.Management.Automation/namespaces        @BrucePay @anmenaga
-
-# Area: PSReadLine
-src/Microsoft.PowerShell.PSReadLine                @charub
 
 # Area: Remoting
 src/System.Management.Automation/engine/remoting   @dantraMSFT @mirichmo @PaulHigin
@@ -68,15 +65,18 @@ src/System.Management.Automation/engine/remoting   @dantraMSFT @mirichmo @PaulHi
 # Area: Side-By-Side
 # @mirichmo @charub
 
+# Area: Libpsl-native
+src/libpsl-native                                  @dantraMSFT
+
 # Areas: Build
 # Must be last
-*.config   @daxian-dbw @TravisEz13 @adityapatwardhan
-*.props    @daxian-dbw @TravisEz13 @adityapatwardhan
-*.yml      @daxian-dbw @TravisEz13 @adityapatwardhan
-*.csproj   @daxian-dbw @TravisEz13 @adityapatwardhan
-build.*    @daxian-dbw @TravisEz13 @adityapatwardhan
-tools/     @daxian-dbw @TravisEz13 @adityapatwardhan
-docker/    @daxian-dbw @TravisEz13 @adityapatwardhan
+*.config   @daxian-dbw @TravisEz13 @adityapatwardhan @anmenaga @dantraMSFT
+*.props    @daxian-dbw @TravisEz13 @adityapatwardhan @anmenaga @dantraMSFT
+*.yml      @daxian-dbw @TravisEz13 @adityapatwardhan @anmenaga @dantraMSFT
+*.csproj   @daxian-dbw @TravisEz13 @adityapatwardhan @anmenaga @dantraMSFT
+build.*    @daxian-dbw @TravisEz13 @adityapatwardhan @anmenaga @dantraMSFT
+tools/     @daxian-dbw @TravisEz13 @adityapatwardhan @anmenaga @dantraMSFT
+docker/    @daxian-dbw @TravisEz13 @adityapatwardhan @anmenaga @dantraMSFT
 
 # Area: Compliance
 tools/terms    @TravisEz13

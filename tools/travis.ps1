@@ -114,7 +114,7 @@ function Set-DailyBuildBadge
     }
 
     $contentType = "image/svg+xml"
-    # more info: https://docs.microsoft.com/en-us/rest/api/storageservices/fileservices/put-blob
+    # more info: https://docs.microsoft.com/rest/api/storageservices/fileservices/put-blob
     $sb = [text.stringbuilder]::new()
     # can't use AppendLine because the `r`n causes the command to fail, it must be `n and only `n
     $null = $sb.Append("$method`n")
@@ -188,56 +188,108 @@ elseif($Stage -eq 'Build')
     $releaseTag = Get-ReleaseTag
 
     Write-Host -Foreground Green "Executing travis.ps1 `$isPR='$isPr' `$isFullBuild='$isFullBuild' - $commitMessage"
-    $output = Split-Path -Parent (Get-PSOutput -Options (New-PSOptions))
 
     $originalProgressPreference = $ProgressPreference
     $ProgressPreference = 'SilentlyContinue'
     try {
         ## We use CrossGen build to run tests only if it's the daily build.
-        Start-PSBuild -CrossGen -PSModuleRestore -CI -ReleaseTag $releaseTag
+        Start-PSBuild -CrossGen -PSModuleRestore -CI -ReleaseTag $releaseTag -Configuration 'Release'
     }
     finally{
         $ProgressPreference = $originalProgressPreference
     }
 
+    $output = Split-Path -Parent (Get-PSOutput -Options (Get-PSOptions))
+
     $testResultsNoSudo = "$pwd/TestResultsNoSudo.xml"
     $testResultsSudo = "$pwd/TestResultsSudo.xml"
 
-    $pesterParam = @{
-        'binDir'     = $output
+    $excludeTag = @('RequireSudoOnUnix')
+
+    $noSudoPesterParam = @{
+        'BinDir'     = $output
         'PassThru'   = $true
         'Terse'      = $true
         'Tag'        = @()
-        'ExcludeTag' = @('RequireSudoOnUnix')
+        'ExcludeTag' = $excludeTag
         'OutputFile' = $testResultsNoSudo
     }
 
     if ($isFullBuild) {
-        $pesterParam['Tag'] = @('CI','Feature','Scenario')
+        $noSudoPesterParam['Tag'] = @('CI','Feature','Scenario')
     } else {
-        $pesterParam['Tag'] = @('CI')
-        $pesterParam['ThrowOnFailure'] = $true
+        $noSudoPesterParam['Tag'] = @('CI')
+        $noSudoPesterParam['ThrowOnFailure'] = $true
     }
 
-    if ($hasRunFailingTestTag)
-    {
-        $pesterParam['IncludeFailingTest'] = $true
+    if ($hasRunFailingTestTag) {
+        $noSudoPesterParam['IncludeFailingTest'] = $true
     }
+
+    # Get the experimental feature names and the tests associated with them
+    $ExperimentalFeatureTests = Get-ExperimentalFeatureTests
 
     # Running tests which do not require sudo.
-    $pesterPassThruNoSudoObject = Start-PSPester @pesterParam
+    $pesterPassThruNoSudoObject = Start-PSPester @noSudoPesterParam
+
+    # Running tests that do not require sudo, with specified experimental features enabled
+    $noSudoResultsWithExpFeatures = @()
+    foreach ($entry in $ExperimentalFeatureTests.GetEnumerator()) {
+        $featureName = $entry.Key
+        $testFiles = $entry.Value
+
+        $expFeatureTestResultFile = "$pwd\TestResultsNoSudo.$featureName.xml"
+        $noSudoPesterParam['OutputFile'] = $expFeatureTestResultFile
+        $noSudoPesterParam['ExperimentalFeatureName'] = $featureName
+        if ($testFiles.Count -eq 0) {
+            # If an empty array is specified for the feature name, we run all tests with the feature enabled.
+            # This allows us to prevent regressions to a critical engine experimental feature.
+            $noSudoPesterParam.Remove('Path')
+        } else {
+            # If a non-empty string or array is specified for the feature name, we only run those test files.
+            $noSudoPesterParam['Path'] = $testFiles
+        }
+        $passThruResult = Start-PSPester @noSudoPesterParam
+        $noSudoResultsWithExpFeatures += $passThruResult
+    }
 
     # Running tests, which require sudo.
-    $pesterParam['Tag'] = @('RequireSudoOnUnix')
-    $pesterParam['ExcludeTag'] = @()
-    $pesterParam['Sudo'] = $true
-    $pesterParam['OutputFile'] = $testResultsSudo
-    $pesterPassThruSudoObject = Start-PSPester @pesterParam
+    $sudoPesterParam = $noSudoPesterParam.Clone()
+    $sudoPesterParam.Remove('Path')
+    $sudoPesterParam['Tag'] = @('RequireSudoOnUnix')
+    $sudoPesterParam['ExcludeTag'] = @()
+    $sudoPesterParam['Sudo'] = $true
+    $sudoPesterParam['OutputFile'] = $testResultsSudo
+    $pesterPassThruSudoObject = Start-PSPester @sudoPesterParam
+
+    # Running tests that require sudo, with specified experimental features enabled
+    $sudoResultsWithExpFeatures = @()
+    foreach ($entry in $ExperimentalFeatureTests.GetEnumerator()) {
+        $featureName = $entry.Key
+        $testFiles = $entry.Value
+
+        $expFeatureTestResultFile = "$pwd\TestResultsSudo.$featureName.xml"
+        $sudoPesterParam['OutputFile'] = $expFeatureTestResultFile
+        $sudoPesterParam['ExperimentalFeatureName'] = $featureName
+        if ($testFiles.Count -eq 0) {
+            # If an empty array is specified for the feature name, we run all tests with the feature enabled.
+            # This allows us to prevent regressions to a critical engine experimental feature.
+            $sudoPesterParam.Remove('Path')
+        } else {
+            # If a non-empty string or array is specified for the feature name, we only run those test files.
+            $sudoPesterParam['Path'] = $testFiles
+        }
+        $passThruResult = Start-PSPester @sudoPesterParam
+        $sudoResultsWithExpFeatures += $passThruResult
+    }
 
     # Determine whether the build passed
     try {
+        $allTestResultsWithNoExpFeature = @($pesterPassThruNoSudoObject, $pesterPassThruSudoObject)
+        $allTestResultsWithExpFeatures = $noSudoResultsWithExpFeatures + $sudoResultsWithExpFeatures
         # this throws if there was an error
-        @($pesterPassThruNoSudoObject, $pesterPassThruSudoObject) | ForEach-Object { Test-PSPesterResults -ResultObject $_ }
+        $allTestResultsWithNoExpFeature | ForEach-Object { Test-PSPesterResults -ResultObject $_ }
+        $allTestResultsWithExpFeatures  | ForEach-Object { Test-PSPesterResults -ResultObject $_ -CanHaveNoResult }
         $result = "PASS"
     }
     catch {
@@ -268,8 +320,6 @@ elseif($Stage -eq 'Build')
 
         # Only build packages for branches, not pull requests
         $packages = @(Start-PSPackage @packageParams -SkipReleaseChecks)
-        # Packaging AppImage depends on the deb package
-        $packages += Start-PSPackage  @packageParams -Type AppImage -SkipReleaseChecks
         foreach($package in $packages)
         {
             # Publish the packages to the nuget feed if:
@@ -285,7 +335,7 @@ elseif($Stage -eq 'Build')
         if ($IsLinux)
         {
             # Create and package Raspbian .tgz
-            Start-PSBuild -PSModuleRestore -Clean -Runtime linux-arm
+            Start-PSBuild -PSModuleRestore -Clean -Runtime linux-arm -Configuration 'Release'
             Start-PSPackage @packageParams -Type tar-arm -SkipReleaseChecks
         }
     }

@@ -27,11 +27,9 @@ namespace System.Management.Automation
         /// <summary>
         /// Constructs a ProviderInvocationException using serialized data
         /// </summary>
-        ///
         /// <param name="info">
         /// serialization information
         /// </param>
-        ///
         /// <param name="context">
         /// streaming context
         /// </param>
@@ -45,7 +43,6 @@ namespace System.Management.Automation
         /// <summary>
         /// Constructs a ProviderInvocationException with a message
         /// </summary>
-        ///
         /// <param name="message">
         /// The message for the exception.
         /// </param>
@@ -58,11 +55,9 @@ namespace System.Management.Automation
         /// <summary>
         /// Constructs a ProviderInvocationException with provider information and an inner exception.
         /// </summary>
-        ///
         /// <param name="provider">
         /// Information about the provider to be used in formatting the message.
         /// </param>
-        ///
         /// <param name="innerException">
         /// The inner exception for this exception.
         /// </param>
@@ -73,7 +68,7 @@ namespace System.Management.Automation
             _providerInfo = provider;
 
             IContainsErrorRecord icer = innerException as IContainsErrorRecord;
-            if (null != icer && null != icer.ErrorRecord)
+            if (icer != null && icer.ErrorRecord != null)
             {
                 _errorRecord = new ErrorRecord(icer.ErrorRecord, innerException);
             }
@@ -91,11 +86,9 @@ namespace System.Management.Automation
         /// Constructs a ProviderInvocationException with provider information and an
         /// ErrorRecord.
         /// </summary>
-        ///
         /// <param name="provider">
         /// Information about the provider to be used in formatting the message.
         /// </param>
-        ///
         /// <param name="errorRecord">
         /// Detailed error information
         /// </param>
@@ -103,7 +96,7 @@ namespace System.Management.Automation
             : base(RuntimeException.RetrieveMessage(errorRecord),
                     RuntimeException.RetrieveException(errorRecord))
         {
-            if (null == errorRecord)
+            if (errorRecord == null)
             {
                 throw new ArgumentNullException("errorRecord");
             }
@@ -117,11 +110,9 @@ namespace System.Management.Automation
         /// Constructs a ProviderInvocationException with a message
         /// and inner exception.
         /// </summary>
-        ///
         /// <param name="message">
         /// The message for the exception.
         /// </param>
-        ///
         /// <param name="innerException">
         /// The inner exception for this exception.
         /// </param>
@@ -134,30 +125,24 @@ namespace System.Management.Automation
         /// <summary>
         /// Constructs a ProviderInvocationException
         /// </summary>
-        ///
         /// <param name="errorId">
         /// This string will be used to construct the FullyQualifiedErrorId,
         /// which is a global identifier of the error condition.  Pass a
         /// non-empty string which is specific to this error condition in
         /// this context.
         /// </param>
-        ///
         /// <param name="resourceStr">
         /// This string is the message template string.
         /// </param>
-        ///
         /// <param name="provider">
         /// The provider information used to format into the message.
         /// </param>
-        ///
         /// <param name="path">
         /// The path that was being processed when the exception occurred.
         /// </param>
-        ///
         /// <param name="innerException">
         /// The exception that was thrown by the provider.
         /// </param>
-        ///
         internal ProviderInvocationException(
             string errorId,
             string resourceStr,
@@ -171,35 +156,28 @@ namespace System.Management.Automation
         /// <summary>
         /// Constructor to make it easy to wrap a provider exception
         /// </summary>
-        ///
         /// <param name="errorId">
         /// This string will be used to construct the FullyQualifiedErrorId,
         /// which is a global identifier of the error condition.  Pass a
         /// non-empty string which is specific to this error condition in
         /// this context.
         /// </param>
-        ///
         /// <param name="resourceStr">
         /// This is the message template string
         /// </param>
-        ///
         /// <param name="provider">
         /// The provider information used to format into the message.
         /// </param>
-        ///
         /// <param name="path">
         /// The path that was being processed when the exception occurred.
         /// </param>
-        ///
         /// <param name="innerException">
         /// The exception that was thrown by the provider.
         /// </param>
-        ///
         /// <param name="useInnerExceptionMessage">
         /// If true, the message from the inner exception will be used if the exception contains
         /// an ErrorRecord. If false, the error message retrieved using the errorId will be used.
         /// </param>
-        ///
         internal ProviderInvocationException(
             string errorId,
             string resourceStr,
@@ -226,7 +204,7 @@ namespace System.Management.Automation
             }
 
             IContainsErrorRecord icer = innerException as IContainsErrorRecord;
-            if (null != icer && null != icer.ErrorRecord)
+            if (icer != null && icer.ErrorRecord != null)
             {
                 _errorRecord = new ErrorRecord(icer.ErrorRecord, errorRecordException);
             }
@@ -256,7 +234,7 @@ namespace System.Management.Automation
         {
             get
             {
-                if (null == _errorRecord)
+                if (_errorRecord == null)
                 {
                     _errorRecord = new ErrorRecord(
                         new ParentContainsErrorRecordException(this),
@@ -279,11 +257,11 @@ namespace System.Management.Automation
             string path,
             Exception innerException)
         {
-            if (null == innerException)
+            if (innerException == null)
             {
                 Diagnostics.Assert(false,
                 "ProviderInvocationException.RetrieveMessage needs innerException");
-                return "";
+                return string.Empty;
             }
             if (String.IsNullOrEmpty(errorId))
             {
@@ -291,7 +269,7 @@ namespace System.Management.Automation
                 "ProviderInvocationException.RetrieveMessage needs errorId");
                 return RuntimeException.RetrieveMessage(innerException);
             }
-            if (null == provider)
+            if (provider == null)
             {
                 Diagnostics.Assert(false,
                 "ProviderInvocationException.RetrieveMessage needs provider");
@@ -410,7 +388,6 @@ namespace System.Management.Automation
         /// <summary>
         /// Constructs a SessionStateException
         /// </summary>
-        ///
         /// <param name="itemName"> name of session state object </param>
         /// <param name="sessionStateCategory"> category of session state object </param>
         /// <param name="resourceStr">This string is the message template string.</param>
@@ -450,7 +427,6 @@ namespace System.Management.Automation
         /// <summary>
         /// Constructs a SessionStateException
         /// </summary>
-        ///
         /// <param name="message">
         /// The message used in the exception.
         /// </param>
@@ -462,11 +438,9 @@ namespace System.Management.Automation
         /// <summary>
         /// Constructs a SessionStateException
         /// </summary>
-        ///
         /// <param name="message">
         /// The message used in the exception.
         /// </param>
-        ///
         /// <param name="innerException">
         /// The exception that caused the error.
         /// </param>
@@ -517,7 +491,7 @@ namespace System.Management.Automation
         {
             get
             {
-                if (null == _errorRecord)
+                if (_errorRecord == null)
                 {
                     _errorRecord = new ErrorRecord(
                         new ParentContainsErrorRecordException(this),
@@ -559,7 +533,7 @@ namespace System.Management.Automation
             params object[] messageArgs)
         {
             object[] a;
-            if (null != messageArgs && 0 < messageArgs.Length)
+            if (messageArgs != null && 0 < messageArgs.Length)
             {
                 a = new object[messageArgs.Length + 1];
                 a[0] = itemName;
@@ -589,21 +563,17 @@ namespace System.Management.Automation
         /// <summary>
         /// Constructs a SessionStateUnauthorizedAccessException
         /// </summary>
-        ///
         /// <param name="itemName">
         /// The name of the session state object the error occurred on.
         /// </param>
-        ///
         /// <param name="sessionStateCategory">
         /// The category of session state object.
         /// </param>
-        ///
         /// <param name="errorIdAndResourceId">
         /// This string is the ErrorId passed to the ErrorRecord, and is also
         /// the resourceId used to look up the message template string in
         /// SessionStateStrings.txt.
         /// </param>
-        ///
         /// <param name="resourceStr">
         /// This string is the ErrorId passed to the ErrorRecord, and is also
         /// the resourceId used to look up the message template string in
@@ -645,7 +615,6 @@ namespace System.Management.Automation
         /// <param name="message">
         /// The message used by the exception.
         /// </param>
-        ///
         /// <param name="innerException">
         /// The exception that caused the error.
         /// </param>
@@ -660,7 +629,6 @@ namespace System.Management.Automation
         /// <summary>
         /// Constructs a SessionStateUnauthorizedAccessException using serialized data.
         /// </summary>
-        ///
         /// <param name="info"> serialization information </param>
         /// <param name="context"> streaming context </param>
         protected SessionStateUnauthorizedAccessException(
@@ -683,25 +651,20 @@ namespace System.Management.Automation
         /// <summary>
         /// Constructs a ProviderNotFoundException
         /// </summary>
-        ///
         /// <param name="itemName">
         /// The name of provider that could not be found.
         /// </param>
-        ///
         /// <param name="sessionStateCategory">
         /// The category of session state object
         /// </param>
-        ///
         /// <param name="errorIdAndResourceId">
         /// This string is the ErrorId passed to the ErrorRecord, and is also
         /// the resourceId used to look up the message template string in
         /// SessionStateStrings.txt.
         /// </param>
-        ///
         /// <param name="resourceStr">
         /// This string is the message template string
         /// </param>
-        ///
         /// <param name="messageArgs">
         /// Additional arguments to build the message from.
         /// </param>
@@ -782,26 +745,21 @@ namespace System.Management.Automation
         /// <summary>
         /// Constructs a ProviderNameAmbiguousException
         /// </summary>
-        ///
         /// <param name="providerName">
         /// The name of provider that was ambiguous.
         /// </param>
-        ///
         /// <param name="errorIdAndResourceId">
         /// This string is the ErrorId passed to the ErrorRecord, and is also
         /// the resourceId used to look up the message template string in
         /// SessionStateStrings.txt.
         /// </param>
-        ///
         /// <param name="resourceStr">
         /// This string is the message template string
         /// </param>
-        ///
         /// <param name="possibleMatches">
         /// The provider information for the providers that match the specified
         /// name.
         /// </param>
-        ///
         /// <param name="messageArgs">
         /// Additional arguments to build the message from.
         /// </param>
@@ -902,13 +860,11 @@ namespace System.Management.Automation
         /// <param name="itemName">
         /// The name of the drive that could not be found.
         /// </param>
-        ///
         /// <param name="errorIdAndResourceId">
         /// This string is the ErrorId passed to the ErrorRecord, and is also
         /// the resourceId used to look up the message template string in
         /// SessionStateStrings.txt.
         /// </param>
-        ///
         /// <param name="resourceStr">
         /// This string is the message template string
         /// </param>
@@ -947,7 +903,6 @@ namespace System.Management.Automation
         /// <param name="message">
         /// The message that will be used by the exception.
         /// </param>
-        ///
         /// <param name="innerException">
         /// The exception that caused the error.
         /// </param>
@@ -987,13 +942,11 @@ namespace System.Management.Automation
         /// <param name="path">
         /// The path that was not found.
         /// </param>
-        ///
         /// <param name="errorIdAndResourceId">
         /// This string is the ErrorId passed to the ErrorRecord, and is also
         /// the resourceId used to look up the message template string in
         /// SessionStateStrings.txt.
         /// </param>
-        ///
         /// <param name="resourceStr">
         /// This string is the ErrorId passed to the ErrorRecord, and is also
         /// the resourceId used to look up the message template string in

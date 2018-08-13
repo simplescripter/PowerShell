@@ -2,18 +2,18 @@
 // Licensed under the MIT License.
 
 using System;
-using System.Linq;
-using System.Management.Automation;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Management.Automation;
+using System.Management.Automation.Internal;
 using System.Management.Automation.Runspaces;
 using Microsoft.PowerShell.Commands.Internal.Format;
 
 namespace Microsoft.PowerShell.Commands
 {
     /// <summary>
-    /// Gets formatting information from the loading
-    /// format information database
+    /// Gets formatting information from the loading format information database.
     /// </summary>
     /// <remarks>Currently supports only table controls
     /// </remarks>
@@ -25,8 +25,7 @@ namespace Microsoft.PowerShell.Commands
         private WildcardPattern[] _filter = new WildcardPattern[1];
 
         /// <summary>
-        /// Get Formatting information only for the specified
-        /// typename
+        /// Get Formatting information only for the specified typename.
         /// </summary>
         [SuppressMessage("Microsoft.Performance", "CA1819:PropertiesShouldNotReturnArrays")]
         [ValidateNotNullOrEmpty]
@@ -65,7 +64,7 @@ namespace Microsoft.PowerShell.Commands
         public Version PowerShellVersion { get; set; }
 
         /// <summary>
-        /// set the default filter
+        /// Set the default filter.
         /// </summary>
         protected override void BeginProcessing()
         {
@@ -93,8 +92,7 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
-        /// Takes out the content from the database and writes them
-        /// out
+        /// Takes out the content from the database and writes them out.
         /// </summary>
         protected override void ProcessRecord()
         {
@@ -170,29 +168,40 @@ namespace Microsoft.PowerShell.Commands
                     typedefs.Add(consolidatedTypeName, viewList);
                 }
                 viewList.Add(formatdef);
-            }// foreach(ViewDefinition...
+            }
 
-            // write out all the available type definitions
-            foreach (var pair in typedefs)
+            if (typedefs.Count == 0)
             {
-                var typeNames = pair.Key;
-
-                if (writeOldWay)
+                ErrorRecord errorRecord = new ErrorRecord(
+                    new TypeLoadException(StringUtil.Format(GetFormatDataStrings.SpecifiedTypeNotFound, _typename)),
+                    "SpecifiedTypeNotFound",
+                    ErrorCategory.InvalidOperation,
+                    _typename);
+                WriteError(errorRecord);
+            }
+            else
+            {
+                foreach (var pair in typedefs)
                 {
-                    foreach (var typeName in typeNames)
+                    var typeNames = pair.Key;
+
+                    if (writeOldWay)
                     {
-                        var etd = new ExtendedTypeDefinition(typeName, pair.Value);
+                        foreach (var typeName in typeNames)
+                        {
+                            var etd = new ExtendedTypeDefinition(typeName, pair.Value);
+                            WriteObject(etd);
+                        }
+                    }
+                    else
+                    {
+                        var etd = new ExtendedTypeDefinition(typeNames[0], pair.Value);
+                        for (int i = 1; i < typeNames.Count; i++)
+                        {
+                            etd.TypeNames.Add(typeNames[i]);
+                        }
                         WriteObject(etd);
                     }
-                }
-                else
-                {
-                    var etd = new ExtendedTypeDefinition(typeNames[0], pair.Value);
-                    for (int i = 1; i < typeNames.Count; i++)
-                    {
-                        etd.TypeNames.Add(typeNames[i]);
-                    }
-                    WriteObject(etd);
                 }
             }
         }

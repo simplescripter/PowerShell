@@ -48,7 +48,6 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="formatFiles"></param>
         /// <param name="isShared"></param>
@@ -89,7 +88,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 _formatFileList.Add(formatFile);
             }
 
-            MshExpressionFactory expressionFactory = new MshExpressionFactory();
+            PSPropertyExpressionFactory expressionFactory = new PSPropertyExpressionFactory();
             List<XmlLoaderLoggerEntry> logEntries = null;
 
             // load the files
@@ -207,7 +206,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 }
             }
 
-            MshExpressionFactory expressionFactory = new MshExpressionFactory();
+            PSPropertyExpressionFactory expressionFactory = new PSPropertyExpressionFactory();
             List<XmlLoaderLoggerEntry> logEntries = null;
 
             // load the formatting data
@@ -290,7 +289,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 throw PSTraceSource.NewInvalidOperationException(FormatAndOutXmlLoadingStrings.SharedFormatTableCannotBeUpdated);
             }
 
-            MshExpressionFactory expressionFactory = new MshExpressionFactory();
+            PSPropertyExpressionFactory expressionFactory = new PSPropertyExpressionFactory();
             List<XmlLoaderLoggerEntry> logEntries = null;
             LoadFromFile(mshsnapins, expressionFactory, false, authorizationManager, host, preValidated, out logEntries);
         }
@@ -316,7 +315,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         /// <returns>true if we had a successful load</returns>
         internal bool LoadFromFile(
             Collection<PSSnapInTypeAndFormatErrors> files,
-            MshExpressionFactory expressionFactory,
+            PSPropertyExpressionFactory expressionFactory,
             bool acceptLoadingErrors,
             AuthorizationManager authorizationManager,
             PSHost host,
@@ -377,7 +376,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         /// <returns>a database instance loaded from file(s)</returns>
         private static TypeInfoDataBase LoadFromFileHelper(
             Collection<PSSnapInTypeAndFormatErrors> files,
-            MshExpressionFactory expressionFactory,
+            PSPropertyExpressionFactory expressionFactory,
             AuthorizationManager authorizationManager,
             PSHost host,
             bool preValidated,
@@ -445,7 +444,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
 
         private static void LoadFormatDataHelper(
             ExtendedTypeDefinition formatData,
-            MshExpressionFactory expressionFactory, List<XmlLoaderLoggerEntry> logEntries, ref bool success,
+            PSPropertyExpressionFactory expressionFactory, List<XmlLoaderLoggerEntry> logEntries, ref bool success,
             PSSnapInTypeAndFormatErrors file, TypeInfoDataBase db,
             bool isBuiltInFormatData,
             bool isForHelp)
@@ -481,7 +480,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         private static bool ProcessBuiltin(
             PSSnapInTypeAndFormatErrors file,
             TypeInfoDataBase db,
-            MshExpressionFactory expressionFactory,
+            PSPropertyExpressionFactory expressionFactory,
             List<XmlLoaderLoggerEntry> logEntries,
             ref bool success)
         {
@@ -517,7 +516,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         private static void ProcessBuiltinFormatViewDefinitions(
             IEnumerable<ExtendedTypeDefinition> views,
             TypeInfoDataBase db,
-            MshExpressionFactory expressionFactory,
+            PSPropertyExpressionFactory expressionFactory,
             PSSnapInTypeAndFormatErrors file,
             List<XmlLoaderLoggerEntry> logEntries,
             bool isForHelp,

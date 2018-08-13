@@ -141,11 +141,8 @@ namespace System.Management.Automation
         /// <summary>
         /// Instantiate internal regex member if not already done.
         /// </summary>
-        ///
         /// <returns> true on success, false otherwise </returns>
-        ///
         /// <remarks>  </remarks>
-        ///
         private void Init()
         {
             if (_isMatch == null)
@@ -407,7 +404,7 @@ namespace System.Management.Automation
         internal WildcardPatternException(ErrorRecord errorRecord)
             : base(RetrieveMessage(errorRecord))
         {
-            if (null == errorRecord)
+            if (errorRecord == null)
             {
                 throw new ArgumentNullException("errorRecord");
             }

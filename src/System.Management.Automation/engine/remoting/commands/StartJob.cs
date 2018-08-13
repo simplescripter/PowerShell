@@ -302,7 +302,7 @@ namespace Microsoft.PowerShell.Commands
         [Parameter(
             Mandatory = true,
             ParameterSetName = StartJobCommand.LiteralFilePathComputerNameParameterSet)]
-        [Alias("PSPath")]
+        [Alias("PSPath","LP")]
         public string LiteralPath
         {
             get
@@ -466,10 +466,10 @@ namespace Microsoft.PowerShell.Commands
             get { return _psVersion; }
             set
             {
-                PSSessionConfigurationCommandBase.CheckPSVersion(value);
+                RemotingCommandUtil.CheckPSVersion(value);
 
                 // Check if specified version of PowerShell is installed
-                PSSessionConfigurationCommandUtilities.CheckIfPowerShellVersionIsInstalled(value);
+                RemotingCommandUtil.CheckIfPowerShellVersionIsInstalled(value);
 
                 _psVersion = value;
             }

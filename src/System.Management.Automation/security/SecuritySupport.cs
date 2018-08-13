@@ -27,7 +27,6 @@ namespace Microsoft.PowerShell
     /// <summary>
     /// Defines the different Execution Policies supported by the
     /// PSAuthorizationManager class.
-    ///
     /// </summary>
     public enum ExecutionPolicy
     {
@@ -70,7 +69,6 @@ namespace Microsoft.PowerShell
     /// policy. They are in the following priority, with successive
     /// elements overriding the items that precede them:
     /// LocalMachine -> CurrentUser -> Runspace
-    ///
     /// </summary>
     public enum ExecutionPolicyScope
     {
@@ -100,7 +98,6 @@ namespace System.Management.Automation.Internal
 {
     /// <summary>
     /// The SAFER policy associated with this file
-    ///
     /// </summary>
     internal enum SaferPolicy
     {
@@ -477,10 +474,11 @@ namespace System.Management.Automation.Internal
 
 #endregion execution policy
 
+        private static bool _saferIdentifyLevelApiSupported = true;
+
         /// <summary>
         /// Get the pass / fail result of calling the SAFER API
         /// </summary>
-        ///
         /// <param name="path">The path to the file in question</param>
         /// <param name="handle">A file handle to the file in question, if available.</param>
         [ArchitectureSensitive]
@@ -488,6 +486,11 @@ namespace System.Management.Automation.Internal
         internal static SaferPolicy GetSaferPolicy(string path, SafeHandle handle)
         {
             SaferPolicy status = SaferPolicy.Allowed;
+
+            if (!_saferIdentifyLevelApiSupported)
+            {
+                return status;
+            }
 
             SAFER_CODE_PROPERTIES codeProperties = new SAFER_CODE_PROPERTIES();
             IntPtr hAuthzLevel;
@@ -555,7 +558,15 @@ namespace System.Management.Automation.Internal
             }
             else
             {
-                throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+                int lastError = Marshal.GetLastWin32Error();
+                if (lastError == NativeConstants.FUNCTION_NOT_SUPPORTED)
+                {
+                    _saferIdentifyLevelApiSupported = false;
+                }
+                else
+                {
+                    throw new System.ComponentModel.Win32Exception(lastError);
+                }
             }
 
             return status;
@@ -564,13 +575,9 @@ namespace System.Management.Automation.Internal
         /// <summary>
         /// throw if file does not exist
         /// </summary>
-        ///
         /// <param name="filePath"> path to file </param>
-        ///
         /// <returns> Does not return a value </returns>
-        ///
         /// <remarks>  </remarks>
-        ///
         internal static void CheckIfFileExists(string filePath)
         {
             if (!File.Exists(filePath))
@@ -583,13 +590,9 @@ namespace System.Management.Automation.Internal
         /// check to see if the specified cert is suitable to be
         /// used as a code signing cert
         /// </summary>
-        ///
         /// <param name="c"> certificate object </param>
-        ///
         /// <returns> true on success, false otherwise </returns>
-        ///
         /// <remarks>  </remarks>
-        ///
         internal static bool CertIsGoodForSigning(X509Certificate2 c)
         {
             if (!CertHasPrivatekey(c))
@@ -605,13 +608,9 @@ namespace System.Management.Automation.Internal
         /// used as an encryption cert for PKI encryption. Note
         /// that this cert doesn't require the private key.
         /// </summary>
-        ///
         /// <param name="c"> certificate object </param>
-        ///
         /// <returns> true on success, false otherwise </returns>
-        ///
         /// <remarks>  </remarks>
-        ///
         internal static bool CertIsGoodForEncryption(X509Certificate2 c)
         {
             return (
@@ -656,13 +655,9 @@ namespace System.Management.Automation.Internal
         /// <summary>
         /// check if the specified cert has a private key in it
         /// </summary>
-        ///
         /// <param name="cert"> certificate object </param>
-        ///
         /// <returns> true on success, false otherwise </returns>
-        ///
         /// <remarks>  </remarks>
-        ///
         internal static bool CertHasPrivatekey(X509Certificate2 cert)
         {
             return cert.HasPrivateKey;
@@ -671,13 +666,9 @@ namespace System.Management.Automation.Internal
         /// <summary>
         /// Get the EKUs of a cert
         /// </summary>
-        ///
         /// <param name="cert"> certificate object </param>
-        ///
         /// <returns> a collection of cert eku strings </returns>
-        ///
         /// <remarks>  </remarks>
-        ///
         [ArchitectureSensitive]
         internal static Collection<string> GetCertEKU(X509Certificate2 cert)
         {
@@ -734,13 +725,9 @@ namespace System.Management.Automation.Internal
         /// <summary>
         /// convert an int to a DWORD
         /// </summary>
-        ///
         /// <param name="n"> signed int number  </param>
-        ///
         /// <returns> DWORD </returns>
-        ///
         /// <remarks>  </remarks>
-        ///
         internal static DWORD GetDWORDFromInt(int n)
         {
             UInt32 result = BitConverter.ToUInt32(BitConverter.GetBytes(n), 0);
@@ -750,13 +737,9 @@ namespace System.Management.Automation.Internal
         /// <summary>
         /// convert a DWORD to int
         /// </summary>
-        ///
         /// <param name="n"> number </param>
-        ///
         /// <returns> int </returns>
-        ///
         /// <remarks>  </remarks>
-        ///
         internal static int GetIntFromDWORD(DWORD n)
         {
             Int64 n64 = n - 0x100000000L;
@@ -822,14 +805,14 @@ namespace System.Management.Automation.Internal
         {
             get
             {
-                string filterString = "";
+                string filterString = string.Empty;
 
                 if (_dnsName != null)
                 {
                     filterString = AppendFilter(filterString, "dns", _dnsName);
                 }
 
-                string ekuT = "";
+                string ekuT = string.Empty;
                 if (_eku != null)
                 {
                     for (int i = 0; i < _eku.Length; i++)
@@ -1076,7 +1059,7 @@ namespace System.Management.Automation
             int startContent = startIndex + beginMarker.Length;
             int endContent = endIndex - endMarker.Length;
             string encodedContent = actualContent.Substring(startContent, endContent - startContent);
-            encodedContent = System.Text.RegularExpressions.Regex.Replace(encodedContent, "\\s", "");
+            encodedContent = System.Text.RegularExpressions.Regex.Replace(encodedContent, "\\s", string.Empty);
             messageBytes = Convert.FromBase64String(encodedContent);
 
             return messageBytes;

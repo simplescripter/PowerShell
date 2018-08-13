@@ -208,6 +208,16 @@ namespace Microsoft.PowerShell.Commands
         }
 
         /// <summary>
+        /// Skips the check on CompatiblePSEditions for modules loaded from the System32 module path.
+        /// </summary>
+        [Parameter]
+        public SwitchParameter SkipEditionCheck
+        {
+            get { return (SwitchParameter)BaseSkipEditionCheck; }
+            set { BaseSkipEditionCheck = value; }
+        }
+
+        /// <summary>
         /// This parameter causes the session state instance to be written...
         /// </summary>
         [Parameter]
@@ -478,7 +488,7 @@ namespace Microsoft.PowerShell.Commands
                 {
                     // if the module in the moduleTable is an assembly module without path, the moduleName is the key.
                     string moduleName = "dynamic_code_module_" + suppliedAssembly;
-                    if (pair.Value.Path == "")
+                    if (pair.Value.Path == string.Empty)
                     {
                         if (pair.Key.Equals(moduleName, StringComparison.OrdinalIgnoreCase))
                         {
@@ -1219,7 +1229,7 @@ namespace Microsoft.PowerShell.Commands
                 return true;
             }
 
-            if (manifestEntries.Any(s => FixupFileName("", s, ".ps1xml").EndsWith(cimModuleFile.FileName, StringComparison.OrdinalIgnoreCase)))
+            if (manifestEntries.Any(s => FixupFileName(string.Empty, s, ".ps1xml").EndsWith(cimModuleFile.FileName, StringComparison.OrdinalIgnoreCase)))
             {
                 return true;
             }
@@ -1729,7 +1739,7 @@ namespace Microsoft.PowerShell.Commands
                 foreach (string name in Name)
                 {
                     PSModuleInfo foundModule = ImportModule_LocallyViaName(importModuleOptions, name);
-                    if (null != foundModule)
+                    if (foundModule != null)
                     {
                         SetModuleBaseForEngineModules(foundModule.Name, this.Context);
 
@@ -1757,7 +1767,7 @@ namespace Microsoft.PowerShell.Commands
                     BaseGuid = modulespec.Guid;
 
                     PSModuleInfo foundModule = ImportModule_LocallyViaName(importModuleOptions, modulespec.Name);
-                    if (null != foundModule)
+                    if (foundModule != null)
                     {
                         SetModuleBaseForEngineModules(foundModule.Name, this.Context);
                     }

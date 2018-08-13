@@ -15,7 +15,6 @@ namespace System.Management.Automation.Security
 {
     /// <summary>
     /// How the policy is being enforced.
-    ///
     /// </summary>
     // Internal Note: Current code that consumes this enum assumes that anything but 'Enforce' means
     // that the script is allowed, and that a system lockdown policy that is anything but 'None' means
@@ -244,7 +243,7 @@ namespace System.Management.Automation.Security
                             if (!error) { break; }
 
                             // Try again with the AppData\LocalLow\Temp path using known folder id:
-                            // https://msdn.microsoft.com/en-us/library/dd378457.aspx
+                            // https://msdn.microsoft.com/library/dd378457.aspx
                             Guid AppDatalocalLowFolderId = new Guid("A520A1A4-1780-4FF6-BD18-167343C5AF16");
                             tempPath = GetKnownFolderPath(AppDatalocalLowFolderId) + @"\Temp";
                         } // end while loop
@@ -338,11 +337,6 @@ namespace System.Management.Automation.Security
 
         private static SystemEnforcementMode GetDebugLockdownPolicy(string path)
         {
-            if (PsUtils.IsRunningOnProcessorArchitectureARM())
-            {
-                return SystemEnforcementMode.Enforce;
-            }
-
             s_wasSystemPolicyDebugPolicy = true;
 
             // Support fall-back debug hook for path exclusions on non-WOA platforms
@@ -470,7 +464,7 @@ namespace System.Management.Automation.Security
 
         internal static string DumpLockdownState(uint pdwLockdownState)
         {
-            string returnValue = "";
+            string returnValue = string.Empty;
 
             if ((pdwLockdownState & WldpNativeConstants.WLDP_LOCKDOWN_DEFINED_FLAG) == WldpNativeConstants.WLDP_LOCKDOWN_DEFINED_FLAG)
             {

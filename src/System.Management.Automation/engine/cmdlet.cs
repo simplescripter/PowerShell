@@ -110,16 +110,14 @@ namespace System.Management.Automation
         /// <summary>
         /// Sets the parameter set
         /// </summary>
-        ///
         /// <param name="parameterSetName">
         /// The name of the valid parameter set.
         /// </param>
-        ///
         internal void SetParameterSetName(string parameterSetName)
         {
             _parameterSetName = parameterSetName;
         }
-        private string _parameterSetName = "";
+        private string _parameterSetName = string.Empty;
 
         #region Override Internal
 
@@ -1701,7 +1699,6 @@ namespace System.Management.Automation
         /// so that the additional information in
         /// <see cref="System.Management.Automation.ErrorRecord"/>
         /// is available.
-        ///
         /// <see cref="System.Management.Automation.Cmdlet.ThrowTerminatingError"/>
         /// always throws
         /// <see cref="System.Management.Automation.PipelineStoppedException"/>,

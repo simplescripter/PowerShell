@@ -99,26 +99,35 @@ Describe "Import-Module with ScriptsToProcess" -Tags "CI" {
     }
 }
 
-Describe "Import-Module for Binary Modules in GAC" -Tags 'CI' {
+Describe "Import-Module for Binary Modules in GAC" -Tags 'Feature' {
     Context "Modules are not loaded from GAC" {
-        BeforeAll {
-            [System.Management.Automation.Internal.InternalTestHooks]::SetTestHook('DisableGACLoading', $true)
-        }
-
-        AfterAll {
-            [System.Management.Automation.Internal.InternalTestHooks]::SetTestHook('DisableGACLoading', $false)
-        }
-
         It "Load PSScheduledJob from Windows Powershell Modules folder should fail" -Skip:(-not $IsWindows) {
-            $modulePath = Join-Path $env:windir "System32/WindowsPowershell/v1.0/Modules/PSScheduledJob"
-            { Import-Module $modulePath -ErrorAction SilentlyContinue } | ShouldBeErrorId 'FormatXmlUpdateException,Microsoft.PowerShell.Commands.ImportModuleCommand'
+            # NOTE:
+            # This test attempts to load an assembly from the GAC and expects to fail.
+            # However, if the assembly is already loaded, the assembly will be resolved before
+            # the DisableGACLoading flag comes into effect, meaning no error is thrown and the test fails.
+            #
+            # Since the System32 module direction is now on the module path and Get-Module -ListAvailable
+            # loads assemblies, the assembly is resolved and this test will fail if any other tests before
+            # it call Get-Module -ListAvailable.
+            #
+            # So for now, the solution is to run this test in a fresh process.
+            # Since disabling GAC loading is supposed to be a startup option, this is possibly appropriate.
+
+            $testScript = {
+                [System.Management.Automation.Internal.InternalTestHooks]::SetTestHook('DisableGACLoading', $true)
+                $modulePath = Join-Path $env:windir "System32/WindowsPowershell/v1.0/Modules/PSScheduledJob"
+                Import-Module $modulePath -SkipEditionCheck
+            }
+            $err = (& "$PSHOME\pwsh.exe" -c $testScript 2>&1 | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] })[0]
+            $err.FullyQualifiedErrorId | Should -Be "FormatXmlUpdateException,Microsoft.PowerShell.Commands.ImportModuleCommand"
         }
     }
 
     Context "Modules are loaded from GAC" {
         It "Load PSScheduledJob from Windows Powershell Modules folder" -Skip:(-not $IsWindows) {
             $modulePath = Join-Path $env:windir "System32/WindowsPowershell/v1.0/Modules/PSScheduledJob"
-            Import-Module $modulePath
+            Import-Module $modulePath -SkipEditionCheck
             (Get-Command New-JobTrigger).Name | Should -BeExactly 'New-JobTrigger'
         }
     }
@@ -239,5 +248,27 @@ Describe "Workflow .Xaml module is not supported in PSCore" -tags "Feature" {
 
     It "Import a module with XAML nested module should raise a 'NotSupported' error" {
         { Import-Module $xamlNestedModule -ErrorAction Stop } | Should -Throw -ErrorId "Modules_WorkflowModuleNotSupported,Microsoft.PowerShell.Commands.ImportModuleCommand"
+    }
+}
+
+Describe "Circular nested module test" -tags "CI" {
+    BeforeAll {
+        $moduleFolder = Join-Path $TestDrive CircularNestedModuleTest
+        $psdPath = Join-Path $moduleFolder CircularNestedModuleTest.psd1
+        $psmPath = Join-Path $moduleFolder CircularNestedModuleTest.psm1
+
+        New-Item -Path $moduleFolder -ItemType Directory -Force > $null
+        Set-Content -Path $psdPath -Value "@{ ModuleVersion = '0.0.1'; RootModule = 'CircularNestedModuleTest'; NestedModules = @('CircularNestedModuleTest') }" -Encoding Ascii
+        Set-Content -Path $psmPath -Value "function bar {}" -Encoding Ascii
+    }
+
+    AfterAll {
+        Remove-Module -Name CircularNestedModuleTest -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $moduleFolder -Force -Recurse
+    }
+
+    It "Loading the module should succeed and return a module with circular nested module" {
+        $m = Import-Module $psdPath -PassThru
+        $m.NestedModules[0] | Should -Be $m
     }
 }

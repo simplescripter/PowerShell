@@ -12,7 +12,6 @@ using Dbg = System.Management.Automation.Diagnostics;
 namespace System.Management.Automation.Remoting
 {
     /// <summary>
-    ///
     /// By design, on the server side, each remote connection is represented by
     /// a ServerRemoteSession object, which contains one instance of this class.
     ///
@@ -67,7 +66,6 @@ namespace System.Management.Automation.Remoting
     ///
     /// This class controls a remote connection by using a Session data structure handler, which
     /// in turn contains a Finite State Machine, and a transport mechanism.
-    ///
     /// </summary>
     internal class ServerRemoteSession : RemoteSession
     {
@@ -123,7 +121,7 @@ namespace System.Management.Automation.Remoting
             string initializationParameters,
             AbstractServerSessionTransportManager transportManager)
         {
-            Dbg.Assert(null != transportManager, "transportManager cannot be null.");
+            Dbg.Assert(transportManager != null, "transportManager cannot be null.");
 
             // let input,output and error from native commands redirect as we have
             // to send (or receive) them back to client for action.
@@ -237,7 +235,7 @@ namespace System.Management.Automation.Remoting
             string configurationName)
         {
             ServerRemoteSession result = CreateServerRemoteSession(senderInfo,
-                "Microsoft.PowerShell", "", transportManager, configurationName);
+                "Microsoft.PowerShell", string.Empty, transportManager, configurationName);
             result._initScriptForOutOfProcRS = initializationScriptForOutOfProcessRunspace;
             return result;
         }
@@ -273,15 +271,12 @@ namespace System.Management.Automation.Remoting
         /// <param name="dataEventArg">
         /// This parameter contains the remote data received from client.
         /// </param>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If the parameter <paramref name="dataEventArg" /> is null.
         /// </exception>
-        ///
         /// <exception cref="ArgumentException">
         /// If the parameter <paramref name="dataEventArg" /> does not contain remote data.
         /// </exception>
-        ///
         /// <exception cref="PSRemotingDataStructureException">
         /// If the destination of the data is not for server.
         /// </exception>
@@ -721,7 +716,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="createRunspaceEventArg"></param>
@@ -798,7 +792,7 @@ namespace System.Management.Automation.Remoting
                 rsSessionStateToUse = _sessionConfigProvider.GetInitialSessionState(_senderInfo);
             }
 
-            if (null == rsSessionStateToUse)
+            if (rsSessionStateToUse == null)
             {
                 throw PSTraceSource.NewInvalidOperationException(RemotingErrorIdStrings.InitialSessionStateNull, _configProviderId);
             }
@@ -904,7 +898,6 @@ namespace System.Management.Automation.Remoting
         /// <param name="negotiationEventArg">
         /// This parameter contains the client negotiation capability packet.
         /// </param>
-        ///
         /// <exception cref="ArgumentNullException">
         /// If the parameter <paramref name="negotiationEventArg"/> is null.
         /// </exception>
@@ -952,14 +945,14 @@ namespace System.Management.Automation.Remoting
         /// <param name="eventArgs"></param>
         private void HandleSessionDSHandlerClosing(object sender, EventArgs eventArgs)
         {
-            if (null != _runspacePoolDriver)
+            if (_runspacePoolDriver != null)
             {
                 _runspacePoolDriver.Close();
             }
 
             // dispose the session configuration object..this will let them
             // clean their resources.
-            if (null != _sessionConfigProvider)
+            if (_sessionConfigProvider != null)
             {
                 _sessionConfigProvider.Dispose();
                 _sessionConfigProvider = null;
@@ -1129,7 +1122,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="clientRunspacePoolId"></param>
         /// <returns></returns>
@@ -1157,7 +1149,7 @@ namespace System.Management.Automation.Remoting
         /// </param>
         internal void ApplyQuotaOnCommandTransportManager(AbstractServerTransportManager cmdTransportManager)
         {
-            Dbg.Assert(null != cmdTransportManager, "cmdTransportManager cannot be null");
+            Dbg.Assert(cmdTransportManager != null, "cmdTransportManager cannot be null");
             cmdTransportManager.ReceivedDataCollection.MaximumReceivedDataSize = _maxRecvdDataSizeCommand;
             cmdTransportManager.ReceivedDataCollection.MaximumReceivedObjectSize = _maxRecvdObjectSize;
         }

@@ -28,7 +28,6 @@ namespace System.Management.Automation
     #region Constructors
 
         /// <summary>
-        ///
         /// </summary>
         public RemotingEncodingException()
             : base()
@@ -36,7 +35,6 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="message"></param>
         public RemotingEncodingException(string message)
@@ -45,7 +43,6 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="message"></param>
         /// <param name="innerException"></param>
@@ -55,7 +52,6 @@ namespace System.Management.Automation
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="message"></param>
         /// <param name="innerException"></param>
@@ -2228,7 +2224,7 @@ namespace System.Management.Automation
             CommandTypes commandType = GetPropertyValue<CommandTypes>(dataAsPSObject, RemoteDataNameStrings.DiscoveryType);
 
             string[] name;
-            if (null != GetPropertyValue<PSObject>(dataAsPSObject, RemoteDataNameStrings.DiscoveryName))
+            if (GetPropertyValue<PSObject>(dataAsPSObject, RemoteDataNameStrings.DiscoveryName) != null)
             {
                 IEnumerable<string> tmp = EnumerateListProperty<string>(dataAsPSObject, RemoteDataNameStrings.DiscoveryName);
                 name = new List<string>(tmp).ToArray();
@@ -2239,7 +2235,7 @@ namespace System.Management.Automation
             }
 
             string[] module;
-            if (null != GetPropertyValue<PSObject>(dataAsPSObject, RemoteDataNameStrings.DiscoveryModule))
+            if (GetPropertyValue<PSObject>(dataAsPSObject, RemoteDataNameStrings.DiscoveryModule) != null)
             {
                 IEnumerable<string> tmp = EnumerateListProperty<string>(dataAsPSObject, RemoteDataNameStrings.DiscoveryModule);
                 module = new List<string>(tmp).ToArray();
@@ -2250,16 +2246,16 @@ namespace System.Management.Automation
             }
 
             ModuleSpecification[] fullyQualifiedName = null;
-            if (null != DeserializingTypeConverter.GetPropertyValue<PSObject>(dataAsPSObject,
-                                                                             RemoteDataNameStrings.DiscoveryFullyQualifiedModule,
-                                                                             DeserializingTypeConverter.RehydrationFlags.NullValueOk | DeserializingTypeConverter.RehydrationFlags.MissingPropertyOk))
+            if (DeserializingTypeConverter.GetPropertyValue<PSObject>(dataAsPSObject,
+                                                                      RemoteDataNameStrings.DiscoveryFullyQualifiedModule,
+                                                                      DeserializingTypeConverter.RehydrationFlags.NullValueOk | DeserializingTypeConverter.RehydrationFlags.MissingPropertyOk) != null)
             {
                 IEnumerable<ModuleSpecification> tmp = EnumerateListProperty<ModuleSpecification>(dataAsPSObject, RemoteDataNameStrings.DiscoveryFullyQualifiedModule);
                 fullyQualifiedName = new List<ModuleSpecification>(tmp).ToArray();
             }
 
             object[] argumentList;
-            if (null != GetPropertyValue<PSObject>(dataAsPSObject, RemoteDataNameStrings.DiscoveryArgumentList))
+            if (GetPropertyValue<PSObject>(dataAsPSObject, RemoteDataNameStrings.DiscoveryArgumentList) != null)
             {
                 IEnumerable<object> tmp = EnumerateListProperty<object>(dataAsPSObject, RemoteDataNameStrings.DiscoveryArgumentList);
                 argumentList = new List<object>(tmp).ToArray();

@@ -664,7 +664,6 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         /// <summary>
         /// file system path for the file we are loading from
         /// </summary>
-        ///
         protected string FilePath
         {
             get
@@ -702,7 +701,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             }
         }
 
-        protected MshExpressionFactory expressionFactory;
+        protected PSPropertyExpressionFactory expressionFactory;
 
         protected DisplayResourceManagerCache displayResourceManagerCache;
 

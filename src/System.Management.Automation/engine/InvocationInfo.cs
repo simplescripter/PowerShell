@@ -33,15 +33,12 @@ namespace System.Management.Automation
         /// <summary>
         /// Constructor for InvocationInfo object
         /// </summary>
-        ///
         /// <param name="commandInfo">
         /// The command information the invocation info represents.
         /// </param>
-        ///
         /// <param name="scriptPosition">
         /// The position representing the invocation, or the position representing the error.
         /// </param>
-        ///
         internal InvocationInfo(CommandInfo commandInfo, IScriptExtent scriptPosition)
             : this(commandInfo, scriptPosition, null)
         {
@@ -51,19 +48,15 @@ namespace System.Management.Automation
         /// <summary>
         /// Constructor for InvocationInfo object
         /// </summary>
-        ///
         /// <param name="commandInfo">
         /// The command information the invocation info represents.
         /// </param>
-        ///
         /// <param name="scriptPosition">
         /// The position representing the invocation, or the position representing the error.
         /// </param>
-        ///
         /// <param name="context">
         /// The context in which the InvocationInfo is being created.
         /// </param>
-        ///
         internal InvocationInfo(CommandInfo commandInfo, IScriptExtent scriptPosition, ExecutionContext context)
         {
             MyCommand = commandInfo;
@@ -252,7 +245,7 @@ namespace System.Management.Automation
         /// <value>The script name or "" if there was no script.</value>
         public string ScriptName
         {
-            get { return ScriptPosition.File ?? ""; }
+            get { return ScriptPosition.File ?? string.Empty; }
         }
 
         /// <summary>
@@ -315,7 +308,7 @@ namespace System.Management.Automation
         /// <value>The name string.</value>
         public string InvocationName
         {
-            get { return _invocationName ?? ""; }
+            get { return _invocationName ?? string.Empty; }
             internal set { _invocationName = value; }
         }
 
@@ -455,9 +448,7 @@ namespace System.Management.Automation
     public class RemoteCommandInfo : CommandInfo
     {
         /// <summary>
-        ///
         /// </summary>
-        ///
         private RemoteCommandInfo(string name, CommandTypes type)
             : base(name, type)
         {

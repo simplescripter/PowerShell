@@ -287,12 +287,12 @@ namespace System.Management.Automation.Remoting
             }
 
             // assign defaults after parsing the xml content.
-            if (null == result.MaxReceivedObjectSizeMB)
+            if (result.MaxReceivedObjectSizeMB == null)
             {
                 result.MaxReceivedObjectSizeMB = BaseTransportManager.MaximumReceivedObjectSize;
             }
 
-            if (null == result.MaxReceivedCommandSizeMB)
+            if (result.MaxReceivedCommandSizeMB == null)
             {
                 result.MaxReceivedCommandSizeMB = BaseTransportManager.MaximumReceivedDataSize;
             }
@@ -301,7 +301,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <returns></returns>
         /// <exception cref="ArgumentException">
@@ -363,7 +362,6 @@ namespace System.Management.Automation.Remoting
         public abstract InitialSessionState GetInitialSessionState(PSSenderInfo senderInfo);
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="sessionConfigurationData"></param>
         /// <param name="senderInfo"></param>
@@ -433,7 +431,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="isDisposing"></param>
         protected virtual void Dispose(bool isDisposing)
@@ -445,7 +442,6 @@ namespace System.Management.Automation.Remoting
         #region GetInitialSessionState from 3rd party shell ids
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="shellId"></param>
         /// <param name="initializationParameters">
@@ -504,7 +500,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="shellId">
         /// shellId for which the assembly is getting loaded
@@ -540,7 +535,7 @@ namespace System.Management.Automation.Remoting
                     assemblyName, shellId);
 
                 assembly = LoadSsnStateProviderAssembly(applicationBase, assemblyName);
-                if (null == assembly)
+                if (assembly == null)
                 {
                     throw PSTraceSource.NewArgumentException("assemblyName", RemotingErrorIdStrings.UnableToLoadAssembly,
                         assemblyName, ConfigurationDataFromXML.INITPARAMETERSTOKEN);
@@ -548,7 +543,7 @@ namespace System.Management.Automation.Remoting
             }
 
             // configuration xml specified an assembly and typetoload.
-            if (null != assembly)
+            if (assembly != null)
             {
                 try
                 {
@@ -557,7 +552,7 @@ namespace System.Management.Automation.Remoting
                         typeToLoad, shellId);
 
                     Type type = assembly.GetType(typeToLoad, true, true);
-                    if (null == type)
+                    if (type == null)
                     {
                         throw PSTraceSource.NewArgumentException("typeToLoad", RemotingErrorIdStrings.UnableToLoadType,
                             typeToLoad, ConfigurationDataFromXML.INITPARAMETERSTOKEN);
@@ -673,7 +668,7 @@ namespace System.Management.Automation.Remoting
                     s_tracer.TraceWarning("Not able to load assembly {0}: {1}", assemblyName, e.Message);
                 }
 
-                if (null != result)
+                if (result != null)
                 {
                     return result;
                 }
@@ -808,7 +803,6 @@ namespace System.Management.Automation.Remoting
     internal sealed class DefaultRemotePowerShellConfiguration : PSSessionConfiguration
     {
         /// <summary>
-        ///
         /// </summary>
         /// <param name="senderInfo"></param>
         /// <returns></returns>
@@ -898,7 +892,6 @@ namespace System.Management.Automation.Remoting
         internal TypeValidationCallback ValidationCallback;
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="key"></param>
         /// <param name="callback"></param>
@@ -1030,7 +1023,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="key"></param>
         /// <param name="obj"></param>
@@ -1062,7 +1054,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="key"></param>
         /// <param name="obj"></param>
@@ -1094,7 +1085,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="key"></param>
         /// <param name="obj"></param>
@@ -1126,7 +1116,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="key"></param>
         /// <param name="obj"></param>
@@ -1147,7 +1136,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="key"></param>
         /// <param name="obj"></param>
@@ -1195,7 +1183,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="key"></param>
         /// <param name="obj"></param>
@@ -1248,7 +1235,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="key"></param>
         /// <param name="obj"></param>
@@ -1513,7 +1499,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         private static void ValidatePS1XMLExtension(string key, string[] paths, string filePath)
         {
@@ -1541,7 +1526,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         private static void ValidatePS1OrPSM1Extension(string key, string[] paths, string filePath)
         {
@@ -1571,7 +1555,6 @@ namespace System.Management.Automation.Remoting
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="table"></param>
         /// <param name="filePath"></param>
@@ -2073,7 +2056,7 @@ namespace System.Management.Automation.Remoting
                     throw ioe;
                 }
 
-                if (null != modules)
+                if (modules != null)
                 {
                     Collection<ModuleSpecification> modulesToImport = new Collection<ModuleSpecification>();
                     foreach (object module in modules)
@@ -2087,14 +2070,14 @@ namespace System.Management.Automation.Remoting
                         else
                         {
                             Hashtable moduleHash = module as Hashtable;
-                            if (null != moduleHash)
+                            if (moduleHash != null)
                             {
                                 moduleSpec = new ModuleSpecification(moduleHash);
                             }
                         }
 
                         // Now add the moduleSpec to modulesToImport
-                        if (null != moduleSpec)
+                        if (moduleSpec != null)
                         {
                             if (string.Equals(InitialSessionState.CoreModule, moduleSpec.Name,
                                               StringComparison.OrdinalIgnoreCase))

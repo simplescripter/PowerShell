@@ -88,7 +88,6 @@ namespace System.Management.Automation.Language
         /// <summary>
         /// stack of DynamicKeywords Cache
         /// </summary>
-        ///
         private static Stack<Dictionary<string, DynamicKeyword>> DynamicKeywordsStack
         {
             get
@@ -126,7 +125,6 @@ namespace System.Management.Automation.Language
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
@@ -147,7 +145,6 @@ namespace System.Management.Automation.Language
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
@@ -163,7 +160,6 @@ namespace System.Management.Automation.Language
         }
 
         /// <summary>
-        ///
         /// </summary>
         /// <param name="keywordToAdd"></param>
         public static void AddKeyword(DynamicKeyword keywordToAdd)
@@ -289,7 +285,6 @@ namespace System.Management.Automation.Language
         /// rewrite the node as a simple direct function call.
         /// If NameMode is other than NoName, then the name of the instance
         /// will be passed as the parameter -InstanceName.
-        ///
         /// </summary>
         public bool DirectCall { get; set; }
 
@@ -492,6 +487,7 @@ namespace System.Management.Automation.Language
         internal string Script;
         internal int TokenStart;
         internal int CurrentIndex;
+        internal Token FirstToken;
         internal Token LastToken;
         internal BitArray SkippedCharOffsets;
         internal List<Token> TokenList;
@@ -687,6 +683,7 @@ namespace System.Management.Automation.Language
                 NestedTokensAdjustment = _nestedTokensAdjustment,
                 Script = _script,
                 TokenStart = _tokenStart,
+                FirstToken = FirstToken,
                 LastToken = LastToken,
                 SkippedCharOffsets = _skippedCharOffsets,
                 TokenList = TokenList,
@@ -708,6 +705,7 @@ namespace System.Management.Automation.Language
             _nestedTokensAdjustment = ts.NestedTokensAdjustment;
             _script = ts.Script;
             _tokenStart = ts.TokenStart;
+            FirstToken = ts.FirstToken;
             LastToken = ts.LastToken;
             _skippedCharOffsets = ts.SkippedCharOffsets;
             TokenList = ts.TokenList;
@@ -2418,7 +2416,7 @@ namespace System.Management.Automation.Language
 
             if (!ScanAfterHereStringHeader("@'"))
             {
-                return NewStringLiteralToken("", TokenKind.HereStringLiteral, TokenFlags.TokenInError);
+                return NewStringLiteralToken(string.Empty, TokenKind.HereStringLiteral, TokenFlags.TokenInError);
             }
 
             TokenFlags flags = TokenFlags.None;
@@ -2486,7 +2484,7 @@ namespace System.Management.Automation.Language
 
             if (!ScanAfterHereStringHeader("@\""))
             {
-                return NewStringExpandableToken("", "", TokenKind.HereStringExpandable, null, TokenFlags.TokenInError);
+                return NewStringExpandableToken(string.Empty, string.Empty, TokenKind.HereStringExpandable, null, TokenFlags.TokenInError);
             }
 
             TokenFlags flags = TokenFlags.None;

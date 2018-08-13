@@ -8,8 +8,10 @@ matrix:
     - os: linux
       dist: trusty
       sudo: required
+      env: TRAVIS_CI_CACHE_NAME=linux
     - os: osx
-      osx_image: xcode8.1
+      osx_image: xcode9.4
+      env: TRAVIS_CI_CACHE_NAME=macOS
   fast_finish: true
 
 addons:
@@ -55,16 +57,19 @@ after_failure:
 after_success:
   - pwsh -File tools/travis.ps1 -Stage Success
 
-# travis-ci will quit using the cache if an enviroment variable changes
+# travis-ci will quit using the cache if an enviroment variable changes.
+# CACHE_VERSION is not used for anything other than invalidating the cache.
+# DOTNET_SKIP_FIRST_TIME_EXPERIENCE is to skip the dotnet-cli initialization,
+# which is expensive and unneeded for build agents.
 env:
   global:
-    - CACHE_VERSION=netcoreapp.2.0.6-sdk.2.1.4
+    - CACHE_VERSION=netcoreapp.2.1-sdk.2.1.302
     - POWERSHELL_TELEMETRY_OPTOUT=1
+    - DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
 
 # timeout uploading cache after 6 minutes (360 seconds)
 cache:
   timeout: 360
   directories:
     - $HOME/.nuget
-    - $HOME/.dotnet
     - $HOME/Library/Caches/Homebrew

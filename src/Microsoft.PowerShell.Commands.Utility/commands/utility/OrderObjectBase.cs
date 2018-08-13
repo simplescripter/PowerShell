@@ -13,7 +13,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace Microsoft.PowerShell.Commands
 {
     /// <summary>
-    /// definitions for hash table keys
+    /// Definitions for hash table keys.
     /// </summary>
     internal static class SortObjectParameterDefinitionKeys
     {
@@ -44,13 +44,12 @@ namespace Microsoft.PowerShell.Commands
     }
 
     /// <summary>
-    /// Base Cmdlet for cmdlets which deal with raw objects
+    /// Base Cmdlet for cmdlets which deal with raw objects.
     /// </summary>
     public class ObjectCmdletBase : PSCmdlet
     {
         #region Parameters
         /// <summary>
-        ///
         /// </summary>
         /// <value></value>
         [Parameter]
@@ -90,7 +89,6 @@ namespace Microsoft.PowerShell.Commands
         internal CultureInfo _cultureInfo = null;
 
         /// <summary>
-        ///
         /// </summary>
         /// <value></value>
         [Parameter]
@@ -111,7 +109,6 @@ namespace Microsoft.PowerShell.Commands
         #region Parameters
 
         /// <summary>
-        ///
         /// </summary>
         [Parameter(ValueFromPipeline = true)]
         public PSObject InputObject { set; get; } = AutomationNull.Value;
@@ -146,7 +143,7 @@ namespace Microsoft.PowerShell.Commands
         internal List<PSObject> InputObjects { get; } = new List<PSObject>();
 
         /// <summary>
-        /// CultureInfo converted from the Culture Cmdlet parameter
+        /// CultureInfo converted from the Culture Cmdlet parameter.
         /// </summary>
         internal CultureInfo ConvertedCulture
         {
@@ -159,9 +156,7 @@ namespace Microsoft.PowerShell.Commands
         #endregion Internal Properties
 
         /// <summary>
-        ///
-        /// Simply accumulates the incoming objects
-        ///
+        /// Simply accumulates the incoming objects.
         /// </summary>
         protected override void ProcessRecord()
         {
@@ -177,7 +172,7 @@ namespace Microsoft.PowerShell.Commands
         #region Internal properties
 
         /// <summary>
-        /// a logical matrix where each row is an input object and its property values specified by Properties
+        /// A logical matrix where each row is an input object and its property values specified by Properties.
         /// </summary>
         internal List<OrderByPropertyEntry> OrderMatrix { get; } = null;
 
@@ -199,7 +194,7 @@ namespace Microsoft.PowerShell.Commands
         // a string array and allows wildcard.
         // Yes, the Cmdlet is needed. It's used to get the TerminatingErrorContext, WriteError and WriteDebug.
 
-        #region process MshExpression and MshParameter
+        #region process PSPropertyExpression and MshParameter
 
         private static void ProcessExpressionParameter(
             List<PSObject> inputObjects,
@@ -245,7 +240,7 @@ namespace Microsoft.PowerShell.Commands
 
                     foreach (MshParameter unexpandedParameter in _unexpandedParameterList)
                     {
-                        MshExpression mshExpression = (MshExpression)unexpandedParameter.GetEntry(FormatParameterDefinitionKeys.ExpressionEntryKey);
+                        PSPropertyExpression mshExpression = (PSPropertyExpression)unexpandedParameter.GetEntry(FormatParameterDefinitionKeys.ExpressionEntryKey);
                         if (!mshExpression.HasWildCardCharacters) // this special cases 1) script blocks and 2) wildcard-less strings
                         {
                             _mshParameterList.Add(unexpandedParameter);
@@ -274,14 +269,14 @@ namespace Microsoft.PowerShell.Commands
             {
                 foreach (MshParameter unexpandedParameter in unexpandedParameterList)
                 {
-                    MshExpression ex = (MshExpression)unexpandedParameter.GetEntry(FormatParameterDefinitionKeys.ExpressionEntryKey);
+                    PSPropertyExpression ex = (PSPropertyExpression)unexpandedParameter.GetEntry(FormatParameterDefinitionKeys.ExpressionEntryKey);
                     if (!ex.HasWildCardCharacters) // this special cases 1) script blocks and 2) wildcard-less strings
                     {
                         expandedParameterList.Add(unexpandedParameter);
                     }
                     else
                     {
-                        SortedDictionary<string, MshExpression> expandedPropertyNames = new SortedDictionary<string, MshExpression>(StringComparer.OrdinalIgnoreCase);
+                        SortedDictionary<string, PSPropertyExpression> expandedPropertyNames = new SortedDictionary<string, PSPropertyExpression>(StringComparer.OrdinalIgnoreCase);
                         if (inputObjects != null)
                         {
                             foreach (object inputObject in inputObjects)
@@ -291,14 +286,14 @@ namespace Microsoft.PowerShell.Commands
                                     continue;
                                 }
 
-                                foreach (MshExpression resolvedName in ex.ResolveNames(PSObject.AsPSObject(inputObject)))
+                                foreach (PSPropertyExpression resolvedName in ex.ResolveNames(PSObject.AsPSObject(inputObject)))
                                 {
                                     expandedPropertyNames[resolvedName.ToString()] = resolvedName;
                                 }
                             }
                         }
 
-                        foreach (MshExpression expandedExpression in expandedPropertyNames.Values)
+                        foreach (PSPropertyExpression expandedExpression in expandedPropertyNames.Values)
                         {
                             MshParameter expandedParameter = new MshParameter();
                             expandedParameter.hash = (Hashtable)unexpandedParameter.hash.Clone();
@@ -321,20 +316,20 @@ namespace Microsoft.PowerShell.Commands
             {
                 foreach (MshParameter unexpandedParameter in UnexpandedParametersWithWildCardPattern)
                 {
-                    MshExpression ex = (MshExpression)unexpandedParameter.GetEntry(FormatParameterDefinitionKeys.ExpressionEntryKey);
+                    PSPropertyExpression ex = (PSPropertyExpression)unexpandedParameter.GetEntry(FormatParameterDefinitionKeys.ExpressionEntryKey);
 
-                    SortedDictionary<string, MshExpression> expandedPropertyNames = new SortedDictionary<string, MshExpression>(StringComparer.OrdinalIgnoreCase);
+                    SortedDictionary<string, PSPropertyExpression> expandedPropertyNames = new SortedDictionary<string, PSPropertyExpression>(StringComparer.OrdinalIgnoreCase);
                     if (inputObject == null)
                     {
                         continue;
                     }
 
-                    foreach (MshExpression resolvedName in ex.ResolveNames(PSObject.AsPSObject(inputObject)))
+                    foreach (PSPropertyExpression resolvedName in ex.ResolveNames(PSObject.AsPSObject(inputObject)))
                     {
                         expandedPropertyNames[resolvedName.ToString()] = resolvedName;
                     }
 
-                    foreach (MshExpression expandedExpression in expandedPropertyNames.Values)
+                    foreach (PSPropertyExpression expandedExpression in expandedPropertyNames.Values)
                     {
                         MshParameter expandedParameter = new MshParameter();
                         expandedParameter.hash = (Hashtable)unexpandedParameter.hash.Clone();
@@ -364,7 +359,7 @@ namespace Microsoft.PowerShell.Commands
             return props;
         }
 
-        #endregion process MshExpression and MshParameter
+        #endregion process PSPropertyExpression and MshParameter
 
         internal static List<OrderByPropertyEntry> CreateOrderMatrix(
             PSCmdlet cmdlet,
@@ -569,10 +564,10 @@ namespace Microsoft.PowerShell.Commands
             ref bool comparable)
         {
             // NOTE: we assume globbing was not allowed in input
-            MshExpression ex = p.GetEntry(FormatParameterDefinitionKeys.ExpressionEntryKey) as MshExpression;
+            PSPropertyExpression ex = p.GetEntry(FormatParameterDefinitionKeys.ExpressionEntryKey) as PSPropertyExpression;
 
             // get the values, but do not expand aliases
-            List<MshExpressionResult> expressionResults = ex.GetValues(inputObject, false, true);
+            List<PSPropertyExpressionResult> expressionResults = ex.GetValues(inputObject, false, true);
 
             if (expressionResults.Count == 0)
             {
@@ -584,7 +579,7 @@ namespace Microsoft.PowerShell.Commands
             }
             propertyNotFoundMsg = null;
             // we obtained some results, enter them into the list
-            foreach (MshExpressionResult r in expressionResults)
+            foreach (PSPropertyExpressionResult r in expressionResults)
             {
                 if (r.Exception == null)
                 {
@@ -606,7 +601,7 @@ namespace Microsoft.PowerShell.Commands
     }
 
     /// <summary>
-    /// This is the row of the OrderMatrix
+    /// This is the row of the OrderMatrix.
     /// </summary>
     internal sealed class OrderByPropertyEntry
     {
@@ -712,7 +707,6 @@ namespace Microsoft.PowerShell.Commands
             return result;
         }
 
-        OrderByPropertyComparer _orderByPropertyComparer = null;
+        private OrderByPropertyComparer _orderByPropertyComparer = null;
     }
 }
-

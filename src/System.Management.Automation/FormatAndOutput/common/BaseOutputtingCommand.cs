@@ -249,6 +249,9 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         /// </summary>
         private enum PreprocessingState { raw, processed, error }
 
+        private const int DefaultConsoleWidth = 120;
+        internal const int StackAllocThreshold = 120;
+
         /// <summary>
         /// test if an object coming from the pipeline needs to be
         /// preprocessed by the default formatter
@@ -442,7 +445,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         private void ProcessFormatStart(FormatMessagesContextManager.OutputContext c)
         {
             // we just add an empty line to the display
-            this.LineOutput.WriteLine("");
+            this.LineOutput.WriteLine(string.Empty);
         }
 
         /// <summary>
@@ -454,7 +457,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         {
             //Console.WriteLine("ProcessFormatEnd");
             // we just add an empty line to the display
-            this.LineOutput.WriteLine("");
+            this.LineOutput.WriteLine(string.Empty);
         }
 
         /// <summary>
@@ -468,13 +471,13 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
 
             if (goc.Data.groupingEntry != null)
             {
-                _lo.WriteLine("");
+                _lo.WriteLine(string.Empty);
 
                 ComplexWriter writer = new ComplexWriter();
                 writer.Initialize(_lo, _lo.ColumnNumber);
                 writer.WriteObject(goc.Data.groupingEntry.formatValueList);
 
-                this.LineOutput.WriteLine("");
+                this.LineOutput.WriteLine(string.Empty);
             }
             goc.GroupStart();
         }
@@ -490,7 +493,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             GroupOutputContext goc = (GroupOutputContext)c;
 
             goc.GroupEnd();
-            this.LineOutput.WriteLine("");
+            this.LineOutput.WriteLine(string.Empty);
         }
 
         /// <summary>
@@ -570,14 +573,14 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             {
                 ListWriter listWriter = new ListWriter();
 
-                _lo.WriteLine("");
+                _lo.WriteLine(string.Empty);
 
                 string[] properties = ListOutputContext.GetProperties(lve);
                 listWriter.Initialize(properties, _lo.ColumnNumber, _lo.DisplayCells);
                 string[] values = ListOutputContext.GetValues(lve);
                 listWriter.WriteProperties(values, _lo);
 
-                _lo.WriteLine("");
+                _lo.WriteLine(string.Empty);
 
                 return;
             }
@@ -758,22 +761,27 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         /// </summary>
         static private int GetConsoleWindowWidth(int columnNumber)
         {
-            const int defaultConsoleWidth = 120;
+            if (InternalTestHooks.SetConsoleWidthToZero) 
+            {
+                return DefaultConsoleWidth;
+            }
 
             if (columnNumber == int.MaxValue)
             {
                 if (_noConsole)
                 {
-                    return defaultConsoleWidth;
+                    return DefaultConsoleWidth;
                 }
                 try
                 {
-                    return Console.WindowWidth;
+                    // if Console width is set to 0, the default width is returned so that the output string is not null.
+                    // This can happen in environments where TERM is not set.
+                    return (Console.WindowWidth != 0) ? Console.WindowWidth : DefaultConsoleWidth;
                 }
                 catch
                 {
                     _noConsole = true;
-                    return defaultConsoleWidth;
+                    return DefaultConsoleWidth;
                 }
             }
             return columnNumber;
@@ -941,7 +949,6 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 TableFormattingHint tableHint = this.InnerCommand.RetrieveFormattingHint() as TableFormattingHint;
                 int[] columnWidthsHint = null;
                 // We expect that console width is less then 120.
-                const int columnsThresHold = 120;
 
                 if (tableHint != null)
                 {
@@ -957,8 +964,8 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 }
 
                 // create arrays for widths and alignment
-                Span<int> columnWidths = columns < columnsThresHold ? stackalloc int[columns] : new int[columns];
-                Span<int> alignment = columns < columnsThresHold ? stackalloc int[columns] : new int[columns];
+                Span<int> columnWidths = columns <= StackAllocThreshold ? stackalloc int[columns] : new int[columns];
+                Span<int> alignment = columns <= StackAllocThreshold ? stackalloc int[columns] : new int[columns];
 
                 int k = 0;
                 foreach (TableColumnInfo tci in this.CurrentTableHeaderInfo.tableColumnInfoList)
@@ -1008,7 +1015,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
 
                 // need to make sure we have matching counts: the header count will have to prevail
                 string[] values = new string[headerColumns];
-                Span<int> alignment = stackalloc int[headerColumns];
+                Span<int> alignment = headerColumns <= StackAllocThreshold ? stackalloc int[headerColumns] : new int[headerColumns];
 
                 int fieldCount = tre.formatPropertyFieldList.Count;
 
@@ -1021,7 +1028,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                     }
                     else
                     {
-                        values[k] = "";
+                        values[k] = string.Empty;
                         alignment[k] = TextAlignment.Left; // hard coded default
                     }
                 }
@@ -1099,7 +1106,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             /// </summary>
             internal override void GroupStart()
             {
-                this.InnerCommand._lo.WriteLine("");
+                this.InnerCommand._lo.WriteLine(string.Empty);
             }
 
             /// <summary>
@@ -1112,7 +1119,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 InternalInitialize(lve);
                 string[] values = GetValues(lve);
                 _listWriter.WriteProperties(values, this.InnerCommand._lo);
-                this.InnerCommand._lo.WriteLine("");
+                this.InnerCommand._lo.WriteLine(string.Empty);
             }
 
             /// <summary>
@@ -1170,8 +1177,8 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                 _buffer = new StringValuesBuffer(itemsPerRow);
 
                 // initialize the writer
-                Span<int> columnWidths = stackalloc int[itemsPerRow];
-                Span<int> alignment = stackalloc int[itemsPerRow];
+                Span<int> columnWidths = itemsPerRow <= StackAllocThreshold ? stackalloc int[itemsPerRow] : new int[itemsPerRow];
+                Span<int> alignment = itemsPerRow <= StackAllocThreshold ? stackalloc int[itemsPerRow] : new int[itemsPerRow];
 
                 for (int k = 0; k < itemsPerRow; k++)
                 {
@@ -1187,7 +1194,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             /// </summary>
             internal override void GroupStart()
             {
-                this.InnerCommand._lo.WriteLine("");
+                this.InnerCommand._lo.WriteLine(string.Empty);
             }
 
             /// <summary>
@@ -1235,7 +1242,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
                     if (k < _buffer.CurrentCount)
                         values[k] = _buffer[k];
                     else
-                        values[k] = "";
+                        values[k] = string.Empty;
                 }
                 this.Writer.GenerateRow(values, this.InnerCommand._lo, false, null, InnerCommand._lo.DisplayCells);
                 _buffer.Reset();

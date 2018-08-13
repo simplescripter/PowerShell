@@ -82,7 +82,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             // Get the Format Enumeration Limit.
             _enumerationLimit = InnerFormatShapeCommand.FormatEnumerationLimit();
 
-            _expressionFactory = new MshExpressionFactory();
+            _expressionFactory = new PSPropertyExpressionFactory();
 
             _formatObjectDeserializer = new FormatObjectDeserializer(this.TerminatingErrorContext);
         }
@@ -500,7 +500,7 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
             return scriptBlock;
         }
 
-        private MshExpressionFactory _expressionFactory;
+        private PSPropertyExpressionFactory _expressionFactory;
         #endregion
 
         private FormatObjectDeserializer _formatObjectDeserializer;
@@ -514,7 +514,6 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
     }
 
     /// <summary>
-    ///
     /// </summary>
     public class OuterFormatShapeCommandBase : FrontEndCommandBase
     {
@@ -633,7 +632,6 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
         #endregion
 
         /// <summary>
-        ///
         /// </summary>
         protected override void BeginProcessing()
         {
@@ -675,7 +673,6 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
     }
 
     /// <summary>
-    ///
     /// </summary>
     public class OuterFormatTableAndListBase : OuterFormatShapeCommandBase
     {
@@ -739,7 +736,6 @@ namespace Microsoft.PowerShell.Commands.Internal.Format
     }
 
     /// <summary>
-    ///
     /// </summary>
     public class OuterFormatTableBase : OuterFormatTableAndListBase
     {
