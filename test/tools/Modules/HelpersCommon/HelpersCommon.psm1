@@ -233,6 +233,93 @@ function Send-VstsLogFile {
         Copy-Item -Path $Path -Destination $logFile
     }
 
-    Write-Host "##vso[artifact.upload containerfolder=$name;artifactname=$name]$logFile"
-    Write-Verbose "Log file captured as $name" -Verbose
+    if($env:BUILD_REASON -ne 'PullRequest')
+    {
+        Write-Host "##vso[artifact.upload containerfolder=$name;artifactname=$name]$logFile"
+        Write-Verbose "Log file captured as $name" -Verbose
+    }
 }
+
+# Tests if the Linux or macOS user is root
+function Test-IsRoot
+{
+    if($IsLinux -or $IsMacOS)
+    {
+        $uid = &id -u
+        if($uid -eq 0)
+        {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+# Tests if we are running is a VSTS Linux Build
+function Test-IsVstsLinux
+{
+    return ($env:TF_BUILD -and $IsLinux)
+}
+
+# Tests if we are running is a VSTS Linux Build
+function Test-IsVstsWindows
+{
+    return ($env:TF_BUILD -and $IsWindows)
+}
+
+# this function wraps native command Execution
+# for more information, read https://mnaoumov.wordpress.com/2015/01/11/execution-of-external-commands-in-powershell-done-right/
+function Start-NativeExecution
+{
+    param(
+        [scriptblock]$sb,
+        [switch]$IgnoreExitcode,
+        [switch]$VerboseOutputOnError
+    )
+    $backupEAP = $script:ErrorActionPreference
+    $script:ErrorActionPreference = "Continue"
+    try {
+        if($VerboseOutputOnError.IsPresent)
+        {
+            $output = & $sb 2>&1
+        }
+        else
+        {
+            & $sb
+        }
+
+        # note, if $sb doesn't have a native invocation, $LASTEXITCODE will
+        # point to the obsolete value
+        if ($LASTEXITCODE -ne 0 -and -not $IgnoreExitcode) {
+            if($VerboseOutputOnError.IsPresent -and $output)
+            {
+                $output | Out-String | Write-Verbose -Verbose
+            }
+
+            # Get caller location for easier debugging
+            $caller = Get-PSCallStack -ErrorAction SilentlyContinue
+            if($caller)
+            {
+                $callerLocationParts = $caller[1].Location -split ":\s*line\s*"
+                $callerFile = $callerLocationParts[0]
+                $callerLine = $callerLocationParts[1]
+
+                $errorMessage = "Execution of {$sb} by ${callerFile}: line $callerLine failed with exit code $LASTEXITCODE"
+                throw $errorMessage
+            }
+            throw "Execution of {$sb} failed with exit code $LASTEXITCODE"
+        }
+    } finally {
+        $script:ErrorActionPreference = $backupEAP
+    }
+}
+
+# Creates a new random hex string for use with things like test certificate passwords
+function New-RandomHexString
+{
+    param([int]$Length = 10)
+
+    $random = [Random]::new()
+    return ((1..$Length).ForEach{ '{0:x}' -f $random.Next(0xf) }) -join ''
+}
+

@@ -200,28 +200,32 @@ namespace System.Management.Automation
                 throw PSTraceSource.NewArgumentNullException("path");
             }
 
+            PathInfo current = CurrentLocation;
             string originalPath = path;
             string driveName = null;
             ProviderInfo provider = null;
             string providerId = null;
 
-            // Replace path with last working directory when '-' was passed.
-            bool pushNextLocation = true;
-            if (originalPath.Equals("-", StringComparison.OrdinalIgnoreCase))
+            switch (originalPath)
             {
-                if (_SetLocationHistory.Count <= 0)
-                {
-                    throw new InvalidOperationException(SessionStateStrings.SetContentToLastLocationWhenHistoryIsEmpty);
-                }
-                var previousLocation =  _SetLocationHistory.Pop();
-                path = previousLocation.Path;
-                pushNextLocation = false;
-            }
-
-            if (pushNextLocation)
-            {
-                var newPushPathInfo = GetNewPushPathInfo();
-                _SetLocationHistory.Push(newPushPathInfo);
+                case string originalPathSwitch when originalPathSwitch.Equals("-", StringComparison.OrdinalIgnoreCase):
+                    if (_setLocationHistory.UndoCount <= 0)
+                    {
+                        throw new InvalidOperationException(SessionStateStrings.LocationUndoStackIsEmpty);
+                    }
+                    path = _setLocationHistory.Undo(this.CurrentLocation).Path;
+                    break;
+                case string originalPathSwitch when originalPathSwitch.Equals("+", StringComparison.OrdinalIgnoreCase):
+                    if (_setLocationHistory.RedoCount <= 0)
+                    {
+                        throw new InvalidOperationException(SessionStateStrings.LocationRedoStackIsEmpty);
+                    }
+                    path = _setLocationHistory.Redo(this.CurrentLocation).Path;
+                    break;
+                default:
+                    var pushPathInfo = GetNewPushPathInfo();
+                    _setLocationHistory.Push(pushPathInfo);
+                    break;
             }
 
             PSDriveInfo previousWorkingDrive = CurrentDrive;
@@ -553,6 +557,15 @@ namespace System.Management.Automation
             // Set the $PWD variable to the new location
 
             this.SetVariable(SpecialVariables.PWDVarPath, this.CurrentLocation, false, true, CommandOrigin.Internal);
+
+            // If an action has been defined for location changes, invoke it now.
+            if (PublicSessionState.InvokeCommand.LocationChangedAction != null)
+            {
+                var eventArgs = new LocationChangedEventArgs(PublicSessionState, current, CurrentLocation);
+                PublicSessionState.InvokeCommand.LocationChangedAction.Invoke(ExecutionContext.CurrentRunspace, eventArgs);
+                s_tracer.WriteLine("Invoked LocationChangedAction");
+            }
+
             return this.CurrentLocation;
         } // SetLocation
 
@@ -766,9 +779,9 @@ namespace System.Management.Automation
         #region push-Pop current working directory
 
         /// <summary>
-        /// A bounded stack for the location history of Set-Location
+        /// Location history for Set-Location that supports Undo/Redo using bounded stacks.
         /// </summary>
-        private BoundedStack<PathInfo> _SetLocationHistory;
+        private readonly HistoryStack<PathInfo> _setLocationHistory;
 
         /// <summary>
         /// A stack of the most recently pushed locations
@@ -806,13 +819,13 @@ namespace System.Management.Automation
             }
 
             // Push the directory/drive pair onto the stack
-            var newPushPathInfo = GetNewPushPathInfo();
-            locationStack.Push(newPushPathInfo);
+            var pushPathInfo = GetNewPushPathInfo();
+            locationStack.Push(pushPathInfo);
         }
 
         private PathInfo GetNewPushPathInfo()
         {
-             // Create a new instance of the directory/drive pair
+            // Create a new instance of the directory/drive pair
             ProviderInfo provider = CurrentDrive.Provider;
             string mshQualifiedPath =
                 LocationGlobber.GetMshQualifiedPath(CurrentDrive.CurrentLocation, CurrentDrive);
@@ -1046,5 +1059,47 @@ namespace System.Management.Automation
 
         #endregion push-Pop current working directory
     }           // SessionStateInternal class
+
+    /// <summary>
+    /// Event argument for the LocationChangedAction containing
+    /// information about the old location we were in and the new
+    /// location we changed to.
+    /// </summary>
+    public class LocationChangedEventArgs : EventArgs
+    {
+        /// <summary>
+        /// Initializes a new instance of the LocationChangedEventArgs class.
+        /// </summary>
+        /// <param name="sessionState">
+        /// The public session state instance associated with this runspace.
+        /// </param>
+        /// <param name="oldPath">
+        /// The path we changed locations from.
+        /// </param>
+        /// <param name="newPath">
+        /// The path we change locations to.
+        /// </param>
+        internal LocationChangedEventArgs(SessionState sessionState, PathInfo oldPath, PathInfo newPath)
+        {
+            SessionState = sessionState;
+            OldPath = oldPath;
+            NewPath = newPath;
+        }
+
+        /// <summary>
+        /// Gets the path we changed location from.
+        /// </summary>
+        public PathInfo OldPath { get; internal set; }
+
+        /// <summary>
+        /// Gets the path we changed location to.
+        /// </summary>
+        public PathInfo NewPath { get; internal set; }
+
+        /// <summary>
+        /// Gets the session state instance for the current runspace.
+        /// </summary>
+        public SessionState SessionState { get; internal set; }
+    }
 }
 
