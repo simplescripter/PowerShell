@@ -362,7 +362,13 @@ Fix steps:
     }
 
     # Get the folder path where pwsh.exe is located.
-    $publishPath = Split-Path $Options.Output -Parent
+    if ((Split-Path $Options.Output -Leaf) -like "pwsh*") {
+        $publishPath = Split-Path $Options.Output -Parent
+    }
+    else {
+        $publishPath = $Options.Output
+    }
+
     try {
         # Relative paths do not work well if cwd is not changed to project
         Push-Location $Options.Top
@@ -423,7 +429,7 @@ Fix steps:
         ## need RCEdit to modify the binaries embedded resources
         $rcedit = "~/.rcedit/rcedit-x64.exe"
         if (-not (Test-Path -Type Leaf $rcedit)) {
-            $rcedit = Get-Command "rcedit-x64.exe" -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1 | % Name
+            $rcedit = Get-Command "rcedit-x64.exe" -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1 | ForEach-Object Name
         }
         if (-not $rcedit) {
             throw "RCEdit is required to modify pwsh.exe resources, please run 'Start-PSBootStrap' to install"
@@ -557,7 +563,7 @@ function Restore-PSPester
         [ValidateNotNullOrEmpty()]
         [string] $Destination = ([IO.Path]::Combine((Split-Path (Get-PSOptions -DefaultToNew).Output), "Modules"))
     )
-    Save-Module -Name Pester -Path $Destination -Repository PSGallery -RequiredVersion "4.2"
+    Save-Module -Name Pester -Path $Destination -Repository PSGallery -RequiredVersion "4.4.2"
 }
 
 function Compress-TestContent {
@@ -1369,13 +1375,6 @@ function Start-PSxUnit {
         throw "PowerShell must be built before running tests!"
     }
 
-    if (Test-Path $SequentialTestResultsFile) {
-        Remove-Item $SequentialTestResultsFile -Force -ErrorAction SilentlyContinue
-    }
-    if (Test-Path $ParallelTestResultsFile) {
-        Remove-Item $ParallelTestResultsFile -Force -ErrorAction SilentlyContinue
-    }
-
     try {
         Push-Location $PSScriptRoot/test/csharp
 
@@ -1413,8 +1412,10 @@ function Start-PSxUnit {
         }
 
         # Run sequential tests first, and then run the tests that can execute in parallel
-        dotnet xunit -configuration $Options.configuration -xml $SequentialTestResultsFile -namespace "PSTests.Sequential" -parallel none
-
+        if (Test-Path $SequentialTestResultsFile) {
+            Remove-Item $SequentialTestResultsFile -Force -ErrorAction SilentlyContinue
+        }
+        dotnet test --configuration $Options.configuration --filter FullyQualifiedName~PSTests.Sequential -p:ParallelizeTestCollections=false --test-adapter-path:. "--logger:xunit;LogFilePath=$SequentialTestResultsFile"
         Publish-TestResults -Path $SequentialTestResultsFile -Type 'XUnit' -Title 'Xunit Sequential'
 
         $extraParams = @()
@@ -1430,7 +1431,10 @@ function Start-PSxUnit {
             )
         }
 
-        dotnet xunit -configuration $Options.configuration -xml $ParallelTestResultsFile -namespace "PSTests.Parallel" -nobuild @extraParams
+        if (Test-Path $ParallelTestResultsFile) {
+            Remove-Item $ParallelTestResultsFile -Force -ErrorAction SilentlyContinue
+        }
+        dotnet test --configuration $Options.configuration --filter FullyQualifiedName~PSTests.Parallel --no-build  --test-adapter-path:. "--logger:xunit;LogFilePath=$ParallelTestResultsFile"
         Publish-TestResults -Path $ParallelTestResultsFile -Type 'XUnit' -Title 'Xunit Parallel'
     }
     finally {
@@ -2609,10 +2613,10 @@ assembly
                 $asm."config-file" = $configfile
                 $asm.time = $suite.time
                 $asm.total = $suite.SelectNodes(".//test-case").Count
-                $asm.Passed = $tGroup|? {$_.Name -eq "Success"} | % {$_.Count}
-                $asm.Failed = $tGroup|? {$_.Name -eq "Failure"} | % {$_.Count}
-                $asm.Skipped = $tGroup|? { $_.Name -eq "Ignored" } | % {$_.Count}
-                $asm.Skipped += $tGroup|? { $_.Name -eq "Inconclusive" } | % {$_.Count}
+                $asm.Passed = $tGroup| Where-Object -FilterScript {$_.Name -eq "Success"} | ForEach-Object -Process {$_.Count}
+                $asm.Failed = $tGroup| Where-Object -FilterScript {$_.Name -eq "Failure"} | ForEach-Object -Process {$_.Count}
+                $asm.Skipped = $tGroup| Where-Object -FilterScript { $_.Name -eq "Ignored" } | ForEach-Object -Process {$_.Count}
+                $asm.Skipped += $tGroup| Where-Object -FilterScript { $_.Name -eq "Inconclusive" } | ForEach-Object -Process {$_.Count}
                 $c = [collection]::new()
                 $c.passed = $asm.Passed
                 $c.failed = $asm.failed
@@ -2974,3 +2978,64 @@ $script:RESX_TEMPLATE = @'
 {0}
 </root>
 '@
+
+function New-TestPackage
+{
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Destination
+    )
+
+    if (Test-Path $Destination -PathType Leaf)
+    {
+        throw "Destination: '$Destination' is not a directory or does not exist."
+    }
+    else
+    {
+        $null = New-Item -Path $Destination -ItemType Directory -Force
+        Write-Verbose -Message "Creating destination folder: $Destination"
+    }
+
+    $packageRoot = Join-Path $env:TEMP ('TestPackage-' + (new-guid))
+    $null = New-Item -ItemType Directory -Path $packageRoot -Force
+    $packagePath = Join-Path $Destination "TestPackage.zip"
+
+    # Build test tools so they are placed in appropriate folders under 'test' then copy to package root.
+    $null = Publish-PSTestTools
+    $powerShellTestRoot =  Join-Path $PSScriptRoot 'test'
+    Copy-Item $powerShellTestRoot -Recurse -Destination $packageRoot -Force
+    Write-Verbose -Message "Copied test directory"
+
+    # Copy assests folder to package root for wix related tests.
+    $assetsPath = Join-Path $PSScriptRoot 'assets'
+    Copy-Item $assetsPath -Recurse -Destination $packageRoot -Force
+    Write-Verbose -Message "Copied assests directory"
+
+    # Create expected folder structure for resx files in package root.
+    $srcRootForResx = New-Item -Path "$packageRoot/src" -Force -ItemType Directory
+
+    $resourceDirectories = Get-ChildItem -Recurse "$PSScriptRoot/src" -Directory -Filter 'resources'
+
+    $resourceDirectories | ForEach-Object {
+        $directoryFullName = $_.FullName
+
+        $partToRemove = Join-Path $PSScriptRoot "src"
+
+        $assemblyPart = $directoryFullName.Replace($partToRemove, '')
+        $assemblyPart = $assemblyPart.TrimStart([io.path]::DirectorySeparatorChar)
+        $resxDestPath = Join-Path $srcRootForResx $assemblyPart
+        $null = New-Item -Path $resxDestPath -Force -ItemType Directory
+        Write-Verbose -Message "Created resx directory : $resxDestPath"
+        Copy-Item -Path "$directoryFullName\*" -Recurse $resxDestPath -Force
+    }
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+    if(Test-Path $packagePath)
+    {
+        Remove-Item -Path $packagePath -Force
+    }
+
+    [System.IO.Compression.ZipFile]::CreateFromDirectory($packageRoot, $packagePath)
+}
